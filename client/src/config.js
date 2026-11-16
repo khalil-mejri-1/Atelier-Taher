@@ -3,24 +3,24 @@
  * Centralized Application Configuration
  *
  * لتعديل رابط الباك إند:
- * 1. يمكنك تعيين الرابط مباشرة في DEFAULT_BACKEND_URL بالأسفل (مثل 'https://votre-serveur.vercel.app')
- * 2. أو إضافة متغير VITE_API_URL في ملف .env أو في لوحة تحكم Vercel
+ * 1. إذا كان الباك إند مرفوعاً على Vercel أو Render (مثل https://atelier-taher-server.vercel.app):
+ *    ضع الرابط في VITE_API_URL داخل ملف .env
+ * 2. في بيئة التطوير المحلي (Local Development):
+ *    اترك VITE_API_URL فارغاً، وسيتم استخدام البروكسي (Proxy) الداخلي لـ Vite تلقائياً وبأمان
+ *    بدون مشاكل CORS أو رفض الاتصال (Connection Refused).
  */
 
-// ضع رابط الباك إند هنا إذا أردت تحديده يدوياً في الكود مباشرة
-const DEFAULT_BACKEND_URL = '';
+const envUrl = (import.meta.env.VITE_API_URL || '').trim();
 
-export const BACKEND_URL =
-  import.meta.env.VITE_API_URL ||
-  DEFAULT_BACKEND_URL ||
-  (typeof window !== 'undefined' && window.location.port === '5173'
-    ? 'http://localhost:5000'
-    : '');
+// إذا تم تحديد رابط خارجي (سحابي أو سيرفر مخصص)
+export const BACKEND_URL = envUrl;
 
-export const API_BASE = BACKEND_URL ? `${BACKEND_URL.replace(/\/+$/, '')}/api` : '/api';
+// في التطوير المحلي بدون رابط خارجي، نستخدم /api المباشر عبر بروكسي Vite
+export const API_BASE = BACKEND_URL
+  ? `${BACKEND_URL.replace(/\/+$/, '')}/api`
+  : '/api';
 
 export default {
   BACKEND_URL,
   API_BASE,
 };
-

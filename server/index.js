@@ -12,11 +12,13 @@ import { createCategoriesRouter } from './routes/categories.js';
 
 dotenv.config();
 
-// Connect to MongoDB & Seed Data
-await connectDB();
-
 const app = express();
 const server = http.createServer(app);
+
+// Connect to MongoDB asynchronously without blocking HTTP server startup
+connectDB().catch((err) => {
+  console.warn('⚠️ Échec de connexion initiale à MongoDB :', err.message);
+});
 
 // Setup Socket.IO for instant live updates across Admin and Worker interfaces
 const io = new Server(server, {
@@ -59,10 +61,18 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 5000;
 
 if (!process.env.VERCEL) {
-  server.listen(PORT, () => {
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`⚠️ Le port ${PORT} est déjà occupé. Un autre serveur fonctionne déjà sur ce port.`);
+    } else {
+      console.error('❌ Erreur serveur HTTP :', err);
+    }
+  });
+
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`=================================================`);
     console.log(`🍃 Atelier Taher Server (MongoDB) is running on port ${PORT}`);
-    console.log(`📡 WebSocket server ready for real-time sync`);
+    console.log(`📡 WebSocket server ready on http://127.0.0.1:${PORT}`);
     console.log(`=================================================`);
   });
 }

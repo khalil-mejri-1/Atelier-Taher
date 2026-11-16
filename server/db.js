@@ -14,17 +14,17 @@ export async function connectDB() {
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/atelier_taher';
 
   try {
-    await mongoose.connect(uri);
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 5000,
+    });
     console.log(`🍃 Connecté à MongoDB avec succès`);
     if (!isConnected) {
       await seedData();
       isConnected = true;
     }
   } catch (error) {
-    console.error('❌ Échec de connexion à MongoDB :', error);
-    if (!process.env.VERCEL) {
-      process.exit(1);
-    }
+    console.error('⚠️ Avertissement : Échec de connexion à MongoDB :', error.message || error);
+    // Ne jamais arrêter le serveur (process.exit) pour que le port 5000 reste actif
   }
 }
 
