@@ -82,7 +82,7 @@ router.get('/daily-production', authenticateToken, async (req, res) => {
     }
 
     const logs = await ActivityLog.find(matchFilter)
-      .populate('pattern_id', 'image_url price')
+      .populate('pattern_id', 'image_url price name_fr name_ar sku category has_parts parts')
       .sort({ created_at: -1 });
 
     let totalQuantity = 0;
