@@ -4,16 +4,27 @@ import Pattern from './models/Pattern.js';
 import ActivityLog from './models/ActivityLog.js';
 import Category from './models/Category.js';
 
+let isConnected = false;
+
 export async function connectDB() {
+  if (mongoose.connection.readyState >= 1) {
+    return;
+  }
+
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/atelier_taher';
 
   try {
     await mongoose.connect(uri);
-    console.log(`🍃 Connecté à MongoDB avec succès : ${uri}`);
-    await seedData();
+    console.log(`🍃 Connecté à MongoDB avec succès`);
+    if (!isConnected) {
+      await seedData();
+      isConnected = true;
+    }
   } catch (error) {
     console.error('❌ Échec de connexion à MongoDB :', error);
-    process.exit(1);
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 }
 

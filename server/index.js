@@ -57,9 +57,14 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`=================================================`);
-  console.log(`🍃 Atelier Taher Server (MongoDB) is running on port ${PORT}`);
-  console.log(`📡 WebSocket server ready for real-time sync`);
-  console.log(`=================================================`);
-});
+
+if (!process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log(`=================================================`);
+    console.log(`🍃 Atelier Taher Server (MongoDB) is running on port ${PORT}`);
+    console.log(`📡 WebSocket server ready for real-time sync`);
+    console.log(`=================================================`);
+  });
+}
+
+export default app;

@@ -1,6 +1,6 @@
 // API client utility for Atelier Taher
+import { API_BASE } from './config';
 
-const API_BASE = '/api';
 
 export function getAuthToken() {
   return localStorage.getItem('atelier_token');
