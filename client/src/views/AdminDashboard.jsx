@@ -17,7 +17,8 @@ import {
   Table,
   LayoutGrid,
   Calendar,
-  Coins
+  Coins,
+  Puzzle
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import { socket } from '../socket';
@@ -613,6 +614,17 @@ export default function AdminDashboard() {
                                   {pattern.name_ar}
                                 </div>
                               )}
+                              {pattern.has_parts && Array.isArray(pattern.parts) && pattern.parts.length > 0 && (
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <span 
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                    title={`Composé de ${pattern.parts.length} parties : ${pattern.parts.map(p => p.name || p.name_ar).join(', ')}`}
+                                  >
+                                    <Puzzle className="w-3 h-3 text-indigo-500" />
+                                    <span>{pattern.parts.length} parties</span>
+                                  </span>
+                                </div>
+                              )}
                               {pattern.notes && (
                                 <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 italic">
                                   {pattern.notes}
@@ -813,6 +825,15 @@ export default function AdminDashboard() {
                                 <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium inline-block">
                                   {pattern.category}
                                 </span>
+                                {pattern.has_parts && Array.isArray(pattern.parts) && pattern.parts.length > 0 && (
+                                  <span 
+                                    className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-200"
+                                    title={`Composé de ${pattern.parts.length} parties`}
+                                  >
+                                    <Puzzle className="w-2.5 h-2.5 text-indigo-500" />
+                                    <span>{pattern.parts.length} parties</span>
+                                  </span>
+                                )}
                                 <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 inline-block">
                                   {parseFloat(pattern.price || 0).toFixed(3)} DT
                                 </span>

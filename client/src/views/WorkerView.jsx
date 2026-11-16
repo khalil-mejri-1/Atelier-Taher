@@ -10,12 +10,14 @@ import {
   RefreshCw,
   Table,
   LayoutGrid,
-  Coins
+  Coins,
+  Puzzle
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import { socket } from '../socket';
 import UndoToast from '../components/UndoToast';
 import ProduceCustomModal from '../components/ProduceCustomModal';
+import ProducePartsModal from '../components/ProducePartsModal';
 import ImagePreviewModal from '../components/ImagePreviewModal';
 
 export default function WorkerView() {
@@ -38,25 +40,32 @@ export default function WorkerView() {
   const [customModalOpen, setCustomModalOpen] = useState(false);
   const [selectedPattern, setSelectedPattern] = useState(null);
 
+  // Produce parts modal state (for multi-part patterns)
+  const [partsModalOpen, setPartsModalOpen] = useState(false);
+  const [partsModalPattern, setPartsModalPattern] = useState(null);
+  const [myProgress, setMyProgress] = useState([]);
+
   // Success alert indicator
   const [flashMessage, setFlashMessage] = useState('');
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [patRes, catRes, statsRes, dailyRes] = await Promise.all([
+      const [patRes, catRes, statsRes, dailyRes, progRes] = await Promise.all([
         patternsApi.getAll({
           category: selectedCategory === 'all' ? undefined : selectedCategory,
           search: search.trim() || undefined,
         }),
         patternsApi.getCategories(),
         logsApi.getStats(),
-        logsApi.getDailyProduction().catch(() => ({ totalEarnings: 0 }))
+        logsApi.getDailyProduction().catch(() => ({ totalEarnings: 0 })),
+        patternsApi.getMyProgress().catch(() => ({ progress: [] })),
       ]);
       setPatterns(patRes.patterns || []);
       setCategories(catRes.categories || []);
       setTodayCount(statsRes.producedToday || 0);
       setTodayEarnings(dailyRes?.totalEarnings || 0);
+      setMyProgress(progRes?.progress || []);
     } catch (err) {
       console.error('Erreur chargement patrons opérateur :', err);
     } finally {
@@ -98,6 +107,34 @@ export default function WorkerView() {
       socket.off('categories_updated', onRefresh);
     };
   }, []);
+
+  // Helper to get worker's printed parts for a pattern
+  const getPatternInProgressParts = (patternId) => {
+    const found = myProgress.find(
+      (p) => (p.pattern_id?._id || p.pattern_id || p.pattern_id?.id) === patternId
+    );
+    return found?.printed_parts || [];
+  };
+
+  const handleProducePartsSuccess = (res) => {
+    if (res.completed) {
+      setTodayCount((prev) => prev + 1);
+      setTodayEarnings((prev) => prev + (res.earned || 0));
+      setFlashMessage(res.message || 'Patron complet validé avec succès !');
+      if (res.logId) {
+        setUndoData({
+          logId: res.logId,
+          patternId: partsModalPattern?.id,
+          patternName: partsModalPattern?.name_fr || partsModalPattern?.name_ar,
+          quantity: 1,
+        });
+      }
+    } else {
+      setFlashMessage(res.message || 'Partie enregistrée !');
+    }
+    setTimeout(() => setFlashMessage(''), 3000);
+    loadData();
+  };
 
   // One-Tap +1 Production
   const handleProduceOne = async (pattern) => {
@@ -370,6 +407,8 @@ export default function WorkerView() {
                   {patterns.map((pattern) => {
                     const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
                     const isCritical = pattern.current_stock <= 3;
+                    const isMultiPart = Boolean(pattern.has_parts && Array.isArray(pattern.parts) && pattern.parts.length > 1);
+                    const printedParts = getPatternInProgressParts(pattern.id);
 
                     return (
                       <tr
@@ -418,6 +457,19 @@ export default function WorkerView() {
                           {pattern.name_ar && pattern.name_ar !== pattern.name_fr && (
                             <div className="text-[11px] text-slate-500 font-medium mt-0.5" dir="rtl">
                               {pattern.name_ar}
+                            </div>
+                          )}
+                          {isMultiPart && (
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                <Puzzle className="w-3 h-3 text-indigo-500" />
+                                <span>{pattern.parts.length} parties</span>
+                              </span>
+                              {printedParts.length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                  <span>En cours : {printedParts.length}/{pattern.parts.length}</span>
+                                </span>
+                              )}
                             </div>
                           )}
                           {pattern.notes && (
@@ -477,25 +529,48 @@ export default function WorkerView() {
 
                         {/* Fast Produce Buttons */}
                         <td className="py-3 px-4 text-center align-middle whitespace-nowrap">
-                          <div className="inline-flex items-center gap-2 justify-center">
-                            <button
-                              onClick={() => handleProduceOne(pattern)}
-                              className="px-3 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
-                              <span>+1 Produit</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedPattern(pattern);
-                                setCustomModalOpen(true);
-                              }}
-                              title="Quantité personnalisée"
-                              className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-transform active:scale-95 border border-slate-200 cursor-pointer"
-                            >
-                              <span>+5 / Autre</span>
-                            </button>
-                          </div>
+                          {isMultiPart ? (
+                            <div className="inline-flex items-center gap-1.5 justify-center">
+                              <button
+                                onClick={() => {
+                                  setPartsModalPattern(pattern);
+                                  setPartsModalOpen(true);
+                                }}
+                                className={`px-3 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer ${
+                                  printedParts.length > 0
+                                    ? 'bg-amber-500 hover:bg-amber-600 text-white ring-2 ring-amber-200'
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                }`}
+                              >
+                                <Puzzle className="w-3.5 h-3.5 text-white" />
+                                <span>
+                                  {printedParts.length > 0
+                                    ? `Compléter (${printedParts.length}/${pattern.parts.length})`
+                                    : `Imprimer parties (${pattern.parts.length})`}
+                                </span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-2 justify-center">
+                              <button
+                                onClick={() => handleProduceOne(pattern)}
+                                className="px-3 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+                                <span>+1 Produit</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedPattern(pattern);
+                                  setCustomModalOpen(true);
+                                }}
+                                title="Quantité personnalisée"
+                                className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-transform active:scale-95 border border-slate-200 cursor-pointer"
+                              >
+                                <span>+5 / Autre</span>
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -510,6 +585,8 @@ export default function WorkerView() {
             {patterns.map((pattern) => {
               const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
               const isCritical = pattern.current_stock <= 3;
+              const isMultiPart = Boolean(pattern.has_parts && Array.isArray(pattern.parts) && pattern.parts.length > 1);
+              const printedParts = getPatternInProgressParts(pattern.id);
 
               return (
                 <div
@@ -519,9 +596,22 @@ export default function WorkerView() {
                   {/* Top info */}
                   <div>
                     <div className="flex items-start justify-between gap-1.5 mb-1.5">
-                      <span className="font-sku text-[10px] font-bold text-slate-500 bg-[#F8F9FA] px-1.5 py-0.2 rounded border border-slate-200">
-                        {pattern.sku}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-sku text-[10px] font-bold text-slate-500 bg-[#F8F9FA] px-1.5 py-0.2 rounded border border-slate-200">
+                          {pattern.sku}
+                        </span>
+                        {isMultiPart && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-200">
+                            <Puzzle className="w-2.5 h-2.5 text-indigo-500" />
+                            <span>{pattern.parts.length} parties</span>
+                          </span>
+                        )}
+                        {printedParts.length > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-amber-50 text-amber-800 px-1.5 py-0.2 rounded border border-amber-200">
+                            <span>{printedParts.length}/{pattern.parts.length}</span>
+                          </span>
+                        )}
+                      </div>
 
                       {/* Stock Badge */}
                       <div className={`px-2 py-0.5 rounded-full text-[11px] font-bold border flex items-center gap-1 ${
@@ -607,26 +697,49 @@ export default function WorkerView() {
                   {/* Production Buttons */}
                   <div className="space-y-1.5 pt-2 border-t border-slate-100">
                     <div className="flex items-center gap-1.5">
-                      {/* One-Tap +1 Button */}
-                      <button
-                        onClick={() => handleProduceOne(pattern)}
-                        className="flex-1 h-10 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4 text-emerald-400 stroke-[3]" />
-                        <span>+1 Produit</span>
-                      </button>
+                      {isMultiPart ? (
+                        <button
+                          onClick={() => {
+                            setPartsModalPattern(pattern);
+                            setPartsModalOpen(true);
+                          }}
+                          className={`flex-1 h-10 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer ${
+                            printedParts.length > 0
+                              ? 'bg-amber-500 hover:bg-amber-600 text-white ring-2 ring-amber-200'
+                              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                          }`}
+                        >
+                          <Puzzle className="w-4 h-4 text-white" />
+                          <span>
+                            {printedParts.length > 0
+                              ? `Compléter (${printedParts.length}/${pattern.parts.length} parties)`
+                              : `Imprimer parties (${pattern.parts.length})`}
+                          </span>
+                        </button>
+                      ) : (
+                        <>
+                          {/* One-Tap +1 Button */}
+                          <button
+                            onClick={() => handleProduceOne(pattern)}
+                            className="flex-1 h-10 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4 text-emerald-400 stroke-[3]" />
+                            <span>+1 Produit</span>
+                          </button>
 
-                      {/* Quick +5 or Custom stepper */}
-                      <button
-                        onClick={() => {
-                          setSelectedPattern(pattern);
-                          setCustomModalOpen(true);
-                        }}
-                        title="Enregistrer une quantité personnalisée"
-                        className="h-10 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl flex items-center justify-center gap-1 transition-transform active:scale-95 border border-slate-200 cursor-pointer"
-                      >
-                        <span>+5 / Autre</span>
-                      </button>
+                          {/* Quick +5 or Custom stepper */}
+                          <button
+                            onClick={() => {
+                              setSelectedPattern(pattern);
+                              setCustomModalOpen(true);
+                            }}
+                            title="Enregistrer une quantité personnalisée"
+                            className="h-10 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl flex items-center justify-center gap-1 transition-transform active:scale-95 border border-slate-200 cursor-pointer"
+                          >
+                            <span>+5 / Autre</span>
+                          </button>
+                        </>
+                      )}
                     </div>
 
                     {isLowStock && (
@@ -643,6 +756,15 @@ export default function WorkerView() {
           </div>
         )}
       </main>
+
+      {/* Produce Parts Modal (for multi-part patterns) */}
+      <ProducePartsModal
+        isOpen={partsModalOpen}
+        onClose={() => setPartsModalOpen(false)}
+        pattern={partsModalPattern}
+        inProgressParts={getPatternInProgressParts(partsModalPattern?.id)}
+        onSuccess={handleProducePartsSuccess}
+      />
 
       {/* Safety Undo Toast (6 seconds countdown) */}
       <UndoToast

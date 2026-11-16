@@ -41,6 +41,13 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    in_progress_patterns: [
+      {
+        pattern_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Pattern' },
+        printed_parts: [{ type: String }],
+        updated_at: { type: Date, default: Date.now },
+      },
+    ],
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

@@ -14,7 +14,9 @@ import {
   Coins, 
   Boxes, 
   Scissors, 
-  FileText 
+  FileText,
+  Puzzle,
+  CheckCircle2
 } from 'lucide-react';
 import { categoriesApi } from '../api';
 
@@ -68,6 +70,8 @@ export default function PatternEditModal({
     material_type: 'Carton Kraft 350g',
     notes: '',
     image_url: '',
+    has_parts: false,
+    parts: [],
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,6 +86,14 @@ export default function PatternEditModal({
 
   useEffect(() => {
     if (pattern) {
+      const patternParts = Array.isArray(pattern.parts) && pattern.parts.length > 0
+        ? pattern.parts.map((p, idx) => ({
+            id: p.id || `part_${idx + 1}`,
+            name: p.name || `Partie ${idx + 1}`,
+            name_ar: p.name_ar || `القسم ${idx + 1}`,
+          }))
+        : [];
+
       setFormData({
         sku: pattern.sku || '',
         name_fr: pattern.name_fr || pattern.name_ar || '',
@@ -94,6 +106,8 @@ export default function PatternEditModal({
         material_type: pattern.material_type || 'Carton Kraft 350g',
         notes: pattern.notes || '',
         image_url: pattern.image_url || '',
+        has_parts: Boolean(pattern.has_parts || patternParts.length > 0),
+        parts: patternParts,
       });
     } else {
       setFormData({
@@ -108,6 +122,8 @@ export default function PatternEditModal({
         material_type: 'Carton Kraft 350g',
         notes: '',
         image_url: '',
+        has_parts: false,
+        parts: [],
       });
     }
     setError('');
@@ -143,6 +159,82 @@ export default function PatternEditModal({
     } finally {
       setAddingCategory(false);
     }
+  };
+
+  // Sub-parts helper actions
+  const handleToggleHasParts = (enabled) => {
+    if (enabled && (!formData.parts || formData.parts.length === 0)) {
+      setFormData((prev) => ({
+        ...prev,
+        has_parts: true,
+        parts: [
+          { id: 'part_1', name: 'Partie 1 (Haut / Devant)', name_ar: 'القسم الأول (الصدر / علوي)' },
+          { id: 'part_2', name: 'Partie 2 (Bas / Dos)', name_ar: 'القسم الثاني (الظهر / سفلي)' },
+        ],
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, has_parts: enabled }));
+    }
+  };
+
+  const handleAddPart = () => {
+    const nextNum = (formData.parts?.length || 0) + 1;
+    setFormData((prev) => ({
+      ...prev,
+      has_parts: true,
+      parts: [
+        ...(prev.parts || []),
+        {
+          id: `part_${nextNum}_${Math.random().toString(36).substring(2, 7)}`,
+          name: `Partie ${nextNum}`,
+          name_ar: `القسم ${nextNum}`,
+        },
+      ],
+    }));
+  };
+
+  const handleRemovePart = (index) => {
+    const updated = [...(formData.parts || [])];
+    updated.splice(index, 1);
+    setFormData((prev) => ({
+      ...prev,
+      parts: updated,
+      has_parts: updated.length > 0,
+    }));
+  };
+
+  const handleUpdatePart = (index, field, value) => {
+    const updated = [...(formData.parts || [])];
+    if (updated[index]) {
+      updated[index] = { ...updated[index], [field]: value };
+      setFormData((prev) => ({ ...prev, parts: updated }));
+    }
+  };
+
+  const handleApplyPartPreset = (presetType) => {
+    let presetParts = [];
+    if (presetType === 'haut_bas') {
+      presetParts = [
+        { id: 'part_1', name: 'Partie 1 : Haut / Veste / Devant', name_ar: 'القسم 1 : الجزء العلوي / سترة' },
+        { id: 'part_2', name: 'Partie 2 : Bas / Pantalon / Jupe', name_ar: 'القسم 2 : الجزء السفلي / سروال' },
+      ];
+    } else if (presetType === 'devant_dos') {
+      presetParts = [
+        { id: 'part_1', name: 'Partie 1 : Devant et Col', name_ar: 'القسم 1 : الصدر والياقة' },
+        { id: 'part_2', name: 'Partie 2 : Dos et Manches', name_ar: 'القسم 2 : الظهر والأكمام' },
+      ];
+    } else if (presetType === 'trois_pieces') {
+      presetParts = [
+        { id: 'part_1', name: 'Partie 1 : Veste / Manteau', name_ar: 'القسم 1 : السترة / معطف' },
+        { id: 'part_2', name: 'Partie 2 : Pantalon', name_ar: 'القسم 2 : السروال' },
+        { id: 'part_3', name: 'Partie 3 : Gilet / Accessoire', name_ar: 'القسم 3 : الصديري / ملحقات' },
+      ];
+    }
+    setFormData((prev) => ({
+      ...prev,
+      has_parts: true,
+      parts: presetParts,
+    }));
   };
 
   if (!isOpen) return null;
@@ -500,7 +592,168 @@ export default function PatternEditModal({
             </div>
           </div>
 
-          {/* Section 3: Tarif de production de la pièce (سعر إنجاز القطعة) */}
+          {/* Section 3: NOUVEAU - Composants & Découpage en sous-parties (أقسام وأجزاء الباترون) */}
+          <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-200/90 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                  <Puzzle className="w-4 h-4 text-indigo-700" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-indigo-950">
+                    Composants & Parties à imprimer
+                  </h4>
+                  <p className="text-[11px] text-indigo-700 font-arabic" dir="rtl">
+                    أقسام وأجزاء الباترون (يجب طباعة كافة الأقسام لاحتساب الباترون للعامل)
+                  </p>
+                </div>
+              </div>
+
+              {/* Toggle Switch */}
+              <button
+                type="button"
+                onClick={() => handleToggleHasParts(!formData.has_parts)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                  formData.has_parts ? 'bg-indigo-600' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                    formData.has_parts ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {!formData.has_parts ? (
+              /* Non-split / Standard 1-piece model */
+              <div className="flex items-center justify-between p-3 bg-white/80 rounded-xl border border-indigo-100 text-xs">
+                <div className="text-slate-600">
+                  <span className="font-bold text-slate-800">Modèle standard (1 seule pièce) : </span>
+                  <span className="text-[11px]">L'ouvrier valide l'impression du patron en une seule fois.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleHasParts(true)}
+                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-[11px] transition-colors cursor-pointer shrink-0"
+                >
+                  + Activer les sous-parties
+                </button>
+              </div>
+            ) : (
+              /* Multi-parts configuration */
+              <div className="space-y-3 pt-1">
+                {/* Presets and Status */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white/90 p-2.5 rounded-xl border border-indigo-100">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-indigo-900">
+                      {formData.parts.length} parties définies
+                    </span>
+                    <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                      Obligatoires pour valider 1 patron
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-slate-400 font-semibold">Modèles rapides :</span>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPartPreset('haut_bas')}
+                      className="px-2 py-0.5 bg-slate-50 hover:bg-indigo-50 text-indigo-700 border border-slate-200 rounded text-[10px] font-semibold transition-colors cursor-pointer"
+                    >
+                      Haut + Bas (2)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPartPreset('devant_dos')}
+                      className="px-2 py-0.5 bg-slate-50 hover:bg-indigo-50 text-indigo-700 border border-slate-200 rounded text-[10px] font-semibold transition-colors cursor-pointer"
+                    >
+                      Devant + Dos (2)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPartPreset('trois_pieces')}
+                      className="px-2 py-0.5 bg-slate-50 hover:bg-indigo-50 text-indigo-700 border border-slate-200 rounded text-[10px] font-semibold transition-colors cursor-pointer"
+                    >
+                      3 Pièces (3)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Parts dynamic list */}
+                <div className="space-y-2">
+                  {formData.parts.map((part, index) => (
+                    <div 
+                      key={part.id || index}
+                      className="flex items-center gap-2 p-2.5 bg-white rounded-xl border border-indigo-100 shadow-2xs"
+                    >
+                      <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-800 text-xs font-bold flex items-center justify-center shrink-0">
+                        {index + 1}
+                      </span>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
+                        <input
+                          type="text"
+                          value={part.name}
+                          onChange={(e) => handleUpdatePart(index, 'name', e.target.value)}
+                          placeholder={`Nom partie ${index + 1} (ex: Devant & Col)`}
+                          className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <input
+                          type="text"
+                          dir="rtl"
+                          value={part.name_ar}
+                          onChange={(e) => handleUpdatePart(index, 'name_ar', e.target.value)}
+                          placeholder={`الاسم بالعربية (مثال: الصدر والياقة)`}
+                          className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-arabic text-right"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePart(index)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                        title="Supprimer cette partie"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add Part Button */}
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={handleAddPart}
+                    className="py-1.5 px-3 bg-white hover:bg-indigo-50 border border-indigo-300 text-indigo-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Ajouter une partie (إضافة قسم)</span>
+                  </button>
+
+                  <span className="text-[11px] text-indigo-600 font-medium">
+                    {formData.parts.length} parties à imprimer
+                  </span>
+                </div>
+
+                {/* Explanatory Banner */}
+                <div className="p-2.5 rounded-xl bg-indigo-100/60 border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold" dir="rtl">
+                      💡 ملاحظة هامة: عند تفعيل هذا الخيار، يجب على العامل طباعة وتأكيد إنجاز جميع الأجزاء ({formData.parts.length}) حتى يتم احتساب الباترون في المخزون وتُضاف أجرته إلى رصيده.
+                    </p>
+                    <p className="text-indigo-800 text-[10px]">
+                      L'ouvrier cochera chaque partie au fur et à mesure de l'impression, et le stock (+1) ainsi que la rémunération ne seront validés qu'une fois les {formData.parts.length} parties terminées.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section 4: Tarif de production de la pièce (سعر إنجاز القطعة) */}
           <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 shadow-2xs">
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
@@ -556,7 +809,7 @@ export default function PatternEditModal({
             </p>
           </div>
 
-          {/* Section 4: Stock & Alertes */}
+          {/* Section 5: Stock & Alertes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Current Stock */}
             <div>
@@ -593,7 +846,7 @@ export default function PatternEditModal({
             </div>
           </div>
 
-          {/* Section 5: Tailles, Matière et Notes */}
+          {/* Section 6: Tailles, Matière et Notes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Size Range */}
             <div>

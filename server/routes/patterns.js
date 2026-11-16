@@ -229,6 +229,176 @@ export function createPatternsRouter(io) {
     }
   });
 
+  // GET /api/patterns/my-progress - Progression de l'ouvrier sur les patrons multi-parties
+  router.get('/my-progress', authenticateToken, async (req, res) => {
+    try {
+      const user = await User.findById(req.user._id).select('in_progress_patterns');
+      res.json({ progress: user?.in_progress_patterns || [] });
+    } catch (err) {
+      console.error('Erreur my-progress :', err);
+      res.status(500).json({ message: 'Erreur lors de la récupération de la progression' });
+    }
+  });
+
+  // POST /api/patterns/produce-part - Enregistrement d'une partie d'un patron multi-parties
+  router.post('/produce-part', authenticateToken, async (req, res) => {
+    try {
+      const { pattern_id, part_id, complete_all = false, notes = '' } = req.body;
+
+      if (!pattern_id) {
+        return res.status(400).json({ message: 'Identifiant du patron requis' });
+      }
+
+      const pattern = await Pattern.findById(pattern_id);
+      if (!pattern) {
+        return res.status(404).json({ message: 'Patron introuvable' });
+      }
+
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        return res.status(404).json({ message: 'Utilisateur introuvable' });
+      }
+
+      if (!user.in_progress_patterns) {
+        user.in_progress_patterns = [];
+      }
+
+      const patternParts = Array.isArray(pattern.parts) && pattern.parts.length > 0
+        ? pattern.parts
+        : [{ id: 'part_1', name: 'Patron complet', name_ar: 'الباترون كاملاً' }];
+
+      const totalPartsCount = patternParts.length;
+
+      // Index de progression existant pour cet ouvrier et ce patron
+      let progressIndex = user.in_progress_patterns.findIndex(
+        (p) => p.pattern_id && p.pattern_id.toString() === pattern._id.toString()
+      );
+
+      let currentPrinted = [];
+      if (progressIndex >= 0) {
+        currentPrinted = Array.from(user.in_progress_patterns[progressIndex].printed_parts || []);
+      }
+
+      let isCompleted = false;
+
+      if (complete_all) {
+        currentPrinted = patternParts.map((p) => p.id);
+        isCompleted = true;
+      } else if (part_id) {
+        if (!currentPrinted.includes(part_id)) {
+          currentPrinted.push(part_id);
+        }
+        if (currentPrinted.length >= totalPartsCount) {
+          isCompleted = true;
+        }
+      } else {
+        return res.status(400).json({ message: 'Veuillez spécifier la partie imprimée' });
+      }
+
+      const unitPrice = typeof pattern.price === 'number' ? pattern.price : 0;
+      let logId = null;
+
+      if (isCompleted) {
+        // Le patron est complet (toutes les parties ont été imprimées) !
+        if (progressIndex >= 0) {
+          user.in_progress_patterns.splice(progressIndex, 1);
+        }
+
+        const prevStock = pattern.current_stock;
+        pattern.current_stock = prevStock + 1;
+        await pattern.save();
+
+        if (unitPrice > 0) {
+          user.balance = (user.balance || 0) + unitPrice;
+        }
+        await user.save();
+
+        const partLabels = patternParts.map((p) => p.name || p.name_ar).join(' + ');
+        const logNote = notes.trim()
+          ? notes.trim()
+          : `Production complète (+1) - ${totalPartsCount} parties validées (${partLabels}) [${unitPrice.toFixed(3)} DT]`;
+
+        const log = await ActivityLog.create({
+          action_type: 'production_increment',
+          user_id: user._id,
+          user_name: user.name,
+          user_role: user.role,
+          pattern_id: pattern._id,
+          pattern_name: pattern.name_fr || pattern.name_ar,
+          pattern_sku: pattern.sku,
+          quantity_changed: 1,
+          previous_stock: prevStock,
+          new_stock: pattern.current_stock,
+          unit_price: unitPrice,
+          total_price: unitPrice,
+          notes: logNote,
+          undone: 0,
+        });
+        logId = log._id.toString();
+
+        emitGlobalUpdates({
+          type: 'production',
+          pattern,
+          quantity: 1,
+          user: user.name,
+          logId,
+          totalPrice: unitPrice,
+        });
+
+        if (io) {
+          io.emit('activity_logged', { log });
+          io.emit('worker_production_recorded', {
+            workerId: user._id,
+            workerName: user.name,
+            quantity: 1,
+            earned: unitPrice,
+            balance: user.balance,
+          });
+        }
+
+        return res.json({
+          success: true,
+          completed: true,
+          message: `Félicitations ! Les ${totalPartsCount} parties sont imprimées : +1 patron validé (+${unitPrice.toFixed(3)} DT)`,
+          pattern,
+          current_stock: pattern.current_stock,
+          earned: unitPrice,
+          balance: user.balance,
+          logId,
+        });
+      } else {
+        // Enregistrement d'une partie intermédiaire (en attente des autres parties)
+        if (progressIndex >= 0) {
+          user.in_progress_patterns[progressIndex].printed_parts = currentPrinted;
+          user.in_progress_patterns[progressIndex].updated_at = new Date();
+        } else {
+          user.in_progress_patterns.push({
+            pattern_id: pattern._id,
+            printed_parts: currentPrinted,
+            updated_at: new Date(),
+          });
+        }
+        await user.save();
+
+        const completedCount = currentPrinted.length;
+        const targetPart = patternParts.find((p) => p.id === part_id);
+        const partLabel = targetPart ? (targetPart.name || targetPart.name_ar) : `Partie ${completedCount}`;
+
+        return res.json({
+          success: true,
+          completed: false,
+          message: `Partie "${partLabel}" enregistrée (${completedCount}/${totalPartsCount}). Imprimez la partie suivante pour valider le patron.`,
+          pattern,
+          printed_parts: currentPrinted,
+          total_parts: totalPartsCount,
+        });
+      }
+    } catch (err) {
+      console.error('Erreur produce-part :', err);
+      res.status(500).json({ message: 'Erreur lors de l’enregistrement de la partie du patron' });
+    }
+  });
+
   // POST /api/patterns/undo-produce - Toast d'annulation de sécurité (Undo 6s)
   router.post('/undo-produce', authenticateToken, async (req, res) => {
     try {
@@ -401,11 +571,26 @@ export function createPatternsRouter(io) {
         price = 0,
         notes = '',
         image_url = '',
+        has_parts = false,
+        parts = [],
       } = req.body;
 
       if ((!name_fr && !name_ar) || !category) {
         return res.status(400).json({ message: 'Le nom du patron et la catégorie sont obligatoires' });
       }
+
+      // Traiter et nettoyer les sous-parties du patron
+      let cleanedParts = [];
+      if (Array.isArray(parts)) {
+        cleanedParts = parts
+          .filter((p) => p && (p.name?.trim() || p.name_ar?.trim()))
+          .map((p, idx) => ({
+            id: p.id || `part_${idx + 1}_${Math.random().toString(36).substring(2, 7)}`,
+            name: (p.name || `Partie ${idx + 1}`).trim(),
+            name_ar: (p.name_ar || `القسم ${idx + 1}`).trim(),
+          }));
+      }
+      const hasPartsBool = Boolean(has_parts && cleanedParts.length > 0);
 
       // Générer automatiquement un SKU unique si non fourni
       let upperSku = (sku && typeof sku === 'string' && sku.trim()) ? sku.trim().toUpperCase() : '';
@@ -446,6 +631,8 @@ export function createPatternsRouter(io) {
         price: Math.max(0, parseFloat(price) || 0),
         notes: notes.trim(),
         image_url: image_url ? image_url.trim() : '',
+        has_parts: hasPartsBool,
+        parts: cleanedParts,
       });
 
       const log = await ActivityLog.create({
@@ -497,6 +684,8 @@ export function createPatternsRouter(io) {
         price = pattern.price,
         notes = pattern.notes,
         image_url = pattern.image_url,
+        has_parts,
+        parts,
       } = req.body;
 
       const upperSku = sku.trim().toUpperCase();
@@ -526,6 +715,21 @@ export function createPatternsRouter(io) {
       pattern.notes = notes.trim();
       if (image_url !== undefined) {
         pattern.image_url = image_url ? image_url.trim() : '';
+      }
+
+      if (has_parts !== undefined || parts !== undefined) {
+        let cleanedParts = [];
+        if (Array.isArray(parts)) {
+          cleanedParts = parts
+            .filter((p) => p && (p.name?.trim() || p.name_ar?.trim()))
+            .map((p, idx) => ({
+              id: p.id || `part_${idx + 1}_${Math.random().toString(36).substring(2, 7)}`,
+              name: (p.name || `Partie ${idx + 1}`).trim(),
+              name_ar: (p.name_ar || `القسم ${idx + 1}`).trim(),
+            }));
+        }
+        pattern.has_parts = Boolean((has_parts !== undefined ? has_parts : pattern.has_parts) && cleanedParts.length > 0);
+        pattern.parts = cleanedParts;
       }
 
       await pattern.save();

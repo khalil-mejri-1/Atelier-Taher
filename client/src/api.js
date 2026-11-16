@@ -76,6 +76,11 @@ export const patternsApi = {
     method: 'POST',
     body: JSON.stringify({ pattern_id, quantity, notes }),
   }),
+  producePart: (pattern_id, part_id, complete_all = false, notes = '') => apiRequest('/patterns/produce-part', {
+    method: 'POST',
+    body: JSON.stringify({ pattern_id, part_id, complete_all, notes }),
+  }),
+  getMyProgress: () => apiRequest('/patterns/my-progress'),
   undoProduce: (logId) => apiRequest('/patterns/undo-produce', {
     method: 'POST',
     body: JSON.stringify({ logId }),

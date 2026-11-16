@@ -61,6 +61,28 @@ const patternSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    has_parts: {
+      type: Boolean,
+      default: false,
+    },
+    parts: [
+      {
+        id: {
+          type: String,
+          default: () => 'part_' + Math.random().toString(36).substring(2, 9),
+        },
+        name: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+        name_ar: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+      },
+    ],
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
