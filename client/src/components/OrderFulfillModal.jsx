@@ -38,9 +38,9 @@ export default function OrderFulfillModal({ isOpen, onClose, pattern, onDeduct }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="bg-white rounded-2xl max-w-sm w-full p-4 sm:p-5 border border-[#E2E8F0] shadow-xl relative animate-in zoom-in-95 duration-150 text-left"
+        className="bg-white rounded-2xl max-w-sm w-full p-4 sm:p-5 border border-[#E2E8F0] shadow-xl relative animate-in zoom-in-95 duration-150 text-left my-auto"
       >
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
           <div className="flex items-center gap-2">
