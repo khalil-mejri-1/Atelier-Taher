@@ -9,3 +9,4 @@ start "Atelier Taher Server" cmd /k "cd server && npm run dev"
 timeout /t 2 /nobreak > nul
 echo [2/2] جاري تشغيل الواجهة الأمامية (Vite)...
 cd client && npm run dev
+

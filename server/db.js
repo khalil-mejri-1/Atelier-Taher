@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import mongoose from 'mongoose';
 import User from './models/User.js';
 import Pattern from './models/Pattern.js';
@@ -7,7 +10,7 @@ import Category from './models/Category.js';
 let isConnected = false;
 
 export async function connectDB() {
-  if (mongoose.connection.readyState >= 1) {
+  if (mongoose.connection.readyState === 1) {
     return;
   }
 
@@ -19,8 +22,8 @@ export async function connectDB() {
     });
     console.log(`🍃 Connecté à MongoDB avec succès`);
     if (!isConnected) {
-      await seedData();
       isConnected = true;
+      seedData().catch((err) => console.warn('Erreur seedData en arrière-plan :', err.message));
     }
   } catch (error) {
     console.error('⚠️ Avertissement : Échec de connexion à MongoDB :', error.message || error);
@@ -216,21 +219,23 @@ async function seedData() {
       await Pattern.insertMany(samplePatterns);
     } else {
       // Refresh sample patterns categories and descriptions to French
-      for (const p of samplePatterns) {
-        await Pattern.updateOne(
-          { sku: p.sku },
-          {
-            $set: {
-              name_fr: p.name_fr,
-              category: p.category,
-              material_type: p.material_type,
-              notes: p.notes,
-              image_url: p.image_url,
-              price: p.price,
-            },
-          }
-        );
-      }
+      await Promise.all(
+        samplePatterns.map((p) =>
+          Pattern.updateOne(
+            { sku: p.sku },
+            {
+              $set: {
+                name_fr: p.name_fr,
+                category: p.category,
+                material_type: p.material_type,
+                notes: p.notes,
+                image_url: p.image_url,
+                price: p.price,
+              },
+            }
+          )
+        )
+      );
     }
 
     // 2.5 Seed Categories if not exist
