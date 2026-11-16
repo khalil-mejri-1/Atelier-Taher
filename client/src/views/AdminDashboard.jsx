@@ -13,7 +13,9 @@ import {
   CheckCircle2,
   RefreshCw,
   Image as ImageIcon,
-  Tag
+  Tag,
+  Table,
+  LayoutGrid
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import { socket } from '../socket';
@@ -44,6 +46,9 @@ export default function AdminDashboard() {
 
   // Multi-select for Bulk Operations
   const [selectedIds, setSelectedIds] = useState([]);
+
+  // View mode: 'table' or 'cards'
+  const [viewMode, setViewMode] = useState('table');
 
   // Modals
   const [orderModalOpen, setOrderModalOpen] = useState(false);
@@ -409,11 +414,11 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Patterns List / Cards */}
-            <div className="bg-transparent sm:bg-white sm:rounded-2xl sm:border sm:border-[#E2E8F0] sm:shadow-xs sm:overflow-hidden">
-              {/* Select All Control Bar */}
-              <div className="p-3 bg-white sm:bg-[#F8F9FA] rounded-2xl sm:rounded-none border sm:border-0 sm:border-b border-[#E2E8F0] sm:border-slate-200 flex items-center justify-between text-xs text-slate-600 mb-3 sm:mb-0 shadow-xs sm:shadow-none">
-                <div className="flex items-center gap-2">
+            {/* Patterns Display: Table / Grid */}
+            <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+              {/* Table / Grid Controls Header */}
+              <div className="p-3 bg-[#F8F9FA] border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 text-xs text-slate-600">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={selectAll}
                     className="flex items-center gap-1.5 font-semibold text-slate-700 hover:text-black cursor-pointer"
@@ -425,23 +430,257 @@ export default function AdminDashboard() {
                     )}
                     <span>Sélectionner tout</span>
                   </button>
+                  <span className="text-[11px] font-medium text-slate-400 border-l border-slate-200 pl-3">
+                    {patterns.length} modèle(s)
+                  </span>
                 </div>
-                <span className="text-[11px] font-medium text-slate-400">
-                  Affichage de {patterns.length} modèle(s)
-                </span>
+
+                {/* View Mode Switcher: Table vs Grid */}
+                <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                      viewMode === 'table'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                    title="Affichage en tableau"
+                  >
+                    <Table className="w-3.5 h-3.5" />
+                    <span>Tableau</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('cards')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                      viewMode === 'cards'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                    title="Affichage en cartes"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Grille</span>
+                  </button>
+                </div>
               </div>
 
               {loading ? (
-                <div className="py-20 text-center text-slate-400 text-xs bg-white rounded-2xl sm:rounded-none border sm:border-0 border-[#E2E8F0]">
+                <div className="py-20 text-center text-slate-400 text-xs bg-white">
                   <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-slate-400" />
                   <span>Actualisation de l'inventaire...</span>
                 </div>
               ) : patterns.length === 0 ? (
-                <div className="py-16 text-center text-slate-400 text-xs bg-white rounded-2xl sm:rounded-none border sm:border-0 border-[#E2E8F0]">
+                <div className="py-16 text-center text-slate-400 text-xs bg-white">
                   Aucun patron ne correspond aux critères
                 </div>
+              ) : viewMode === 'table' ? (
+                /* === TABLE VIEW === */
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold text-[11px] uppercase tracking-wider select-none">
+                        <th className="py-3 px-3 w-10 text-center">
+                          <button
+                            onClick={selectAll}
+                            className="text-slate-500 hover:text-black cursor-pointer inline-flex items-center justify-center"
+                            title="Sélectionner tout"
+                          >
+                            {selectedIds.length === patterns.length && patterns.length > 0 ? (
+                              <CheckSquare className="w-4 h-4 text-slate-900" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-400" />
+                            )}
+                          </button>
+                        </th>
+                        <th className="py-3 px-3 w-16 text-center">Photo</th>
+                        <th className="py-3 px-3 w-28">Référence (SKU)</th>
+                        <th className="py-3 px-4 min-w-[200px]">Modèle / Désignation</th>
+                        <th className="py-3 px-3 min-w-[120px]">Catégorie</th>
+                        <th className="py-3 px-3 min-w-[140px]">Tailles & Matière</th>
+                        <th className="py-3 px-4 text-center min-w-[140px]">Stock Disponible</th>
+                        <th className="py-3 px-4 text-center min-w-[190px]">Déstockage Rapide</th>
+                        <th className="py-3 px-4 text-right min-w-[90px]">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {patterns.map((pattern) => {
+                        const isSelected = selectedIds.includes(pattern.id);
+                        const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
+                        const isOutOfStock = pattern.current_stock <= 0;
+
+                        return (
+                          <tr
+                            key={pattern.id}
+                            className={`hover:bg-slate-50/80 transition-colors group ${
+                              isSelected ? 'bg-slate-50/90 ring-1 ring-inset ring-slate-800' : ''
+                            }`}
+                          >
+                            {/* Checkbox */}
+                            <td className="py-3 px-3 text-center align-middle">
+                              <button
+                                onClick={() => toggleSelectPattern(pattern.id)}
+                                className="text-slate-400 hover:text-slate-800 cursor-pointer inline-flex items-center justify-center"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-[#0F172A]" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                              </button>
+                            </td>
+
+                            {/* Photo / Thumbnail */}
+                            <td className="py-3 px-3 text-center align-middle">
+                              {pattern.image_url ? (
+                                <img
+                                  src={pattern.image_url}
+                                  alt={pattern.name_fr}
+                                  onClick={() =>
+                                    setPreviewImage({
+                                      url: pattern.image_url,
+                                      title: pattern.name_fr || pattern.name_ar,
+                                      sku: pattern.sku,
+                                    })
+                                  }
+                                  className="w-11 h-11 rounded-lg object-cover border border-slate-200 shadow-2xs hover:scale-110 cursor-pointer transition-transform mx-auto"
+                                  title="Cliquer pour agrandir la photo du patron"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = 'https://placehold.co/100x100/f8f9fa/1e293b?text=Patron';
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-11 h-11 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 mx-auto">
+                                  <ImageIcon className="w-4 h-4 text-slate-400" />
+                                </div>
+                              )}
+                            </td>
+
+                            {/* SKU */}
+                            <td className="py-3 px-3 align-middle">
+                              <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/90 whitespace-nowrap inline-block">
+                                {pattern.sku}
+                              </span>
+                            </td>
+
+                            {/* Nom & Description */}
+                            <td className="py-3 px-4 align-middle">
+                              <div className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
+                                {pattern.name_fr || pattern.name_ar}
+                              </div>
+                              {pattern.name_ar && pattern.name_ar !== pattern.name_fr && (
+                                <div className="text-[11px] text-slate-500 font-medium mt-0.5" dir="rtl">
+                                  {pattern.name_ar}
+                                </div>
+                              )}
+                              {pattern.notes && (
+                                <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 italic">
+                                  {pattern.notes}
+                                </p>
+                              )}
+                            </td>
+
+                            {/* Catégorie */}
+                            <td className="py-3 px-3 align-middle">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80 whitespace-nowrap">
+                                {pattern.category}
+                              </span>
+                            </td>
+
+                            {/* Gradation & Matière */}
+                            <td className="py-3 px-3 align-middle text-[11px]">
+                              <div className="text-slate-700 font-medium truncate max-w-[140px]" title={pattern.size_range || 'Standard'}>
+                                <span className="text-slate-400 text-[10px]">Tailles : </span>
+                                {pattern.size_range || 'Standard'}
+                              </div>
+                              <div className="text-slate-500 text-[10px] truncate max-w-[140px]" title={pattern.material_type || '-'}>
+                                <span className="text-slate-400">Matière : </span>
+                                {pattern.material_type || '-'}
+                              </div>
+                            </td>
+
+                            {/* Stock Disponible */}
+                            <td className="py-3 px-4 text-center align-middle whitespace-nowrap">
+                              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                                isOutOfStock
+                                  ? 'bg-[#FEF2F2] text-[#B91C1C] border-red-200'
+                                  : isLowStock
+                                  ? 'bg-[#FFFBEB] text-[#B45309] border-amber-200'
+                                  : 'bg-[#F0FDF4] text-[#15803D] border-green-200'
+                              }`}>
+                                <span className={`w-2 h-2 rounded-full ${
+                                  isOutOfStock ? 'bg-[#B91C1C]' : isLowStock ? 'bg-[#B45309]' : 'bg-[#15803D]'
+                                }`} />
+                                <span className="font-mono font-extrabold text-sm">{pattern.current_stock}</span>
+                                <span className="text-[10px] font-medium">pcs</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                                {isOutOfStock ? (
+                                  <span className="text-red-500 font-semibold">Rupture totale</span>
+                                ) : isLowStock ? (
+                                  <span className="text-amber-600 font-semibold">Seuil : {pattern.low_stock_threshold}</span>
+                                ) : (
+                                  <span>Seuil : {pattern.low_stock_threshold}</span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Déstockage Rapide */}
+                            <td className="py-3 px-4 text-center align-middle whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5 justify-center">
+                                <button
+                                  onClick={() => handleQuickDeductOne(pattern)}
+                                  disabled={isOutOfStock}
+                                  title="Déduire 1 pièce (-1)"
+                                  className="px-2.5 py-1.5 bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed text-xs font-bold rounded-lg border border-red-200 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                >
+                                  -1 Déduire
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setOrderPattern(pattern);
+                                    setOrderModalOpen(true);
+                                  }}
+                                  disabled={isOutOfStock}
+                                  title="Déduire une commande avec nom du client"
+                                  className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed text-xs font-semibold rounded-lg border border-[#E2E8F0] transition-colors cursor-pointer shadow-2xs"
+                                >
+                                  Commande...
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Actions (Modifier / Supprimer) */}
+                            <td className="py-3 px-4 text-right align-middle whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setEditPattern(pattern);
+                                    setEditModalOpen(true);
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                  title="Modifier le patron"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeletePattern(pattern)}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Supprimer le patron"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
-                <div className="space-y-2.5 sm:space-y-0 sm:divide-y sm:divide-slate-100">
+                /* === GRID / CARDS VIEW === */
+                <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {patterns.map((pattern) => {
                     const isSelected = selectedIds.includes(pattern.id);
                     const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
@@ -450,78 +689,31 @@ export default function AdminDashboard() {
                     return (
                       <div
                         key={pattern.id}
-                        className={`p-3 sm:p-3.5 bg-white rounded-xl sm:rounded-none border border-[#E2E8F0] sm:border-0 shadow-2xs sm:shadow-none hover:bg-[#F8F9FA]/80 transition-all flex flex-col md:flex-row md:items-center justify-between gap-2.5 ${
-                          isSelected ? 'ring-2 ring-slate-800 bg-slate-50/60 sm:bg-slate-50 sm:ring-0' : ''
+                        className={`p-3.5 bg-white rounded-xl border border-[#E2E8F0] shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between ${
+                          isSelected ? 'ring-2 ring-slate-800 bg-slate-50/70' : ''
                         }`}
                       >
-                        {/* Selection & Details */}
-                        <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                          <button
-                            onClick={() => toggleSelectPattern(pattern.id)}
-                            className="mt-0.5 text-slate-400 hover:text-slate-800 shrink-0 cursor-pointer"
-                          >
-                            {isSelected ? (
-                              <CheckSquare className="w-3.5 h-3.5 text-[#0F172A]" />
-                            ) : (
-                              <Square className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-
-                          {/* Image Thumbnail */}
-                          {pattern.image_url ? (
-                            <img
-                              src={pattern.image_url}
-                              alt={pattern.name_fr}
-                              onClick={() => setPreviewImage({ url: pattern.image_url, title: pattern.name_fr || pattern.name_ar, sku: pattern.sku })}
-                              className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg object-cover border border-slate-200 shadow-2xs hover:scale-105 cursor-pointer transition-transform shrink-0"
-                              title="Cliquer pour agrandir la photo du patron"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = 'https://placehold.co/100x100/f8f9fa/1e293b?text=Patron';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                              <ImageIcon className="w-4 h-4 text-slate-400" />
-                            </div>
-                          )}
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                              <span className="font-sku text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                        <div>
+                          {/* Top Card Row */}
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => toggleSelectPattern(pattern.id)}
+                                className="text-slate-400 hover:text-slate-800 cursor-pointer"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-[#0F172A]" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                              </button>
+                              <span className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                                 {pattern.sku}
                               </span>
-                              <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium">
-                                {pattern.category}
-                              </span>
-                              {pattern.size_range && (
-                                <span className="text-[10px] text-slate-400 font-sku">
-                                  {pattern.size_range}
-                                </span>
-                              )}
                             </div>
 
-                            <h4 className="font-bold text-xs sm:text-sm text-[#0F172A] leading-snug">
-                              {pattern.name_fr || pattern.name_ar}
-                            </h4>
-                            {pattern.name_ar && pattern.name_ar !== pattern.name_fr && (
-                              <p className="text-[10px] text-slate-400 font-sku mt-0.5">
-                                {pattern.name_ar}
-                              </p>
-                            )}
-                            {pattern.notes && (
-                              <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">
-                                {pattern.notes}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Mobile Actions: Touch-friendly & Non-overflowing */}
-                        <div className="flex flex-col gap-2 pt-2 border-t border-slate-100 sm:hidden">
-                          {/* Row 1: Stock Status Badge & Edit/Delete Buttons */}
-                          <div className="flex items-center justify-between">
-                            <div className={`px-2 py-0.5 rounded-full text-[11px] font-bold border inline-flex items-center gap-1.5 ${
+                            {/* Stock Badge */}
+                            <div className={`px-2 py-0.5 rounded-full text-[11px] font-bold border inline-flex items-center gap-1 ${
                               isOutOfStock
                                 ? 'bg-[#FEF2F2] text-[#B91C1C] border-red-200'
                                 : isLowStock
@@ -531,32 +723,60 @@ export default function AdminDashboard() {
                               <span className={`w-1.5 h-1.5 rounded-full ${
                                 isOutOfStock ? 'bg-[#B91C1C]' : isLowStock ? 'bg-[#B45309]' : 'bg-[#15803D]'
                               }`} />
-                              <span className="font-sku text-xs font-extrabold">{pattern.current_stock} pcs</span>
-                              <span className="text-[9px] font-normal text-slate-500">(seuil: {pattern.low_stock_threshold})</span>
-                            </div>
-
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => {
-                                  setEditPattern(pattern);
-                                  setEditModalOpen(true);
-                                }}
-                                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                                title="Modifier le patron"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeletePattern(pattern)}
-                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                title="Supprimer le patron"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              <span className="font-mono text-xs font-bold">{pattern.current_stock} pcs</span>
                             </div>
                           </div>
 
-                          {/* Row 2: Touch-friendly Quick Order Deduction Buttons */}
+                          {/* Pattern Details with Image */}
+                          <div className="flex items-start gap-2.5 mb-2.5">
+                            {pattern.image_url ? (
+                              <img
+                                src={pattern.image_url}
+                                alt={pattern.name_fr}
+                                onClick={() =>
+                                  setPreviewImage({
+                                    url: pattern.image_url,
+                                    title: pattern.name_fr || pattern.name_ar,
+                                    sku: pattern.sku,
+                                  })
+                                }
+                                className="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-2xs hover:scale-105 cursor-pointer transition-transform shrink-0"
+                                title="Agrandir"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = 'https://placehold.co/100x100/f8f9fa/1e293b?text=Patron';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                                <ImageIcon className="w-4 h-4 text-slate-400" />
+                              </div>
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-bold text-xs sm:text-sm text-[#0F172A] leading-snug line-clamp-1">
+                                {pattern.name_fr || pattern.name_ar}
+                              </h4>
+                              {pattern.name_ar && pattern.name_ar !== pattern.name_fr && (
+                                <p className="text-[10px] text-slate-400 mt-0.5 truncate" dir="rtl">
+                                  {pattern.name_ar}
+                                </p>
+                              )}
+                              <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium mt-1 inline-block">
+                                {pattern.category}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Material & Sizes */}
+                          <div className="text-[10px] text-slate-500 bg-[#F8F9FA] p-2 rounded-lg border border-slate-100 mb-2.5 space-y-0.5">
+                            <div className="truncate"><span className="text-slate-400">Taille :</span> {pattern.size_range || 'Standard'}</div>
+                            <div className="truncate"><span className="text-slate-400">Matière :</span> {pattern.material_type || '-'}</div>
+                          </div>
+                        </div>
+
+                        {/* Card Actions */}
+                        <div className="space-y-2 pt-2 border-t border-slate-100">
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               onClick={() => handleQuickDeductOne(pattern)}
@@ -576,78 +796,29 @@ export default function AdminDashboard() {
                               Commande...
                             </button>
                           </div>
-                        </div>
 
-                        {/* Desktop Actions */}
-                        <div className="hidden sm:flex items-center justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                          
-                          {/* Live Stock Count Badge */}
-                          <div className="text-right">
-                            <div className={`px-2.5 py-0.5 rounded-full text-xs font-bold border inline-flex items-center gap-1.5 ${
-                              isOutOfStock
-                                ? 'bg-[#FEF2F2] text-[#B91C1C] border-red-200'
-                                : isLowStock
-                                ? 'bg-[#FFFBEB] text-[#B45309] border-amber-200'
-                                : 'bg-[#F0FDF4] text-[#15803D] border-green-200'
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${
-                                isOutOfStock ? 'bg-[#B91C1C]' : isLowStock ? 'bg-[#B45309]' : 'bg-[#15803D]'
-                              }`} />
-                              <span className="font-sku text-xs font-bold">{pattern.current_stock}</span>
-                              <span className="text-[10px] font-normal">pcs</span>
+                          <div className="flex items-center justify-between text-xs pt-1">
+                            <span className="text-[10px] text-slate-400">Seuil alerte: {pattern.low_stock_threshold}</span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditPattern(pattern);
+                                  setEditModalOpen(true);
+                                }}
+                                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                title="Modifier"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeletePattern(pattern)}
+                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                            <div className="text-[9px] text-slate-400 text-center mt-0.5">
-                              Seuil : {pattern.low_stock_threshold}
-                            </div>
                           </div>
-
-                          {/* Quick Order Deduction Buttons */}
-                          <div className="flex items-center gap-1">
-                            {/* Fast -1 Deduction */}
-                            <button
-                              onClick={() => handleQuickDeductOne(pattern)}
-                              disabled={isOutOfStock}
-                              title="Déduire 1 pièce (-1)"
-                              className="px-2 py-1 bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed text-xs font-bold rounded-lg border border-red-200 transition-transform active:scale-95 cursor-pointer"
-                            >
-                              -1 Déduire
-                            </button>
-
-                            {/* Custom Order Deduction Modal */}
-                            <button
-                              onClick={() => {
-                                setOrderPattern(pattern);
-                                setOrderModalOpen(true);
-                              }}
-                              disabled={isOutOfStock}
-                              title="Déduire une commande avec nom du client"
-                              className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed text-xs font-semibold rounded-lg border border-[#E2E8F0] transition-colors cursor-pointer"
-                            >
-                              Déduire commande...
-                            </button>
-                          </div>
-
-                          {/* Edit / Delete actions */}
-                          <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
-                            <button
-                              onClick={() => {
-                                setEditPattern(pattern);
-                                setEditModalOpen(true);
-                              }}
-                              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                              title="Modifier le patron"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeletePattern(pattern)}
-                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                              title="Supprimer le patron"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
                         </div>
                       </div>
                     );

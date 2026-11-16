@@ -7,7 +7,9 @@ import {
   AlertTriangle, 
   Sparkles,
   Layers,
-  RefreshCw
+  RefreshCw,
+  Table,
+  LayoutGrid
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import { socket } from '../socket';
@@ -22,6 +24,7 @@ export default function WorkerView() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [todayCount, setTodayCount] = useState(0);
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'cards'
 
   // Undo Toast state
   const [undoData, setUndoData] = useState(null);
@@ -229,39 +232,69 @@ export default function WorkerView() {
               )}
             </div>
 
-            {/* Category Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
-              <button
-                onClick={() => setSelectedCategory('all')}
-                className={`px-3.5 py-2 rounded-xl font-semibold whitespace-nowrap transition-all ${
-                  selectedCategory === 'all'
-                    ? 'bg-[#0F172A] text-white shadow-xs'
-                    : 'bg-white text-slate-600 border border-[#E2E8F0] hover:bg-slate-50'
-                }`}
-              >
-                Tous les patrons ({patterns.length})
-              </button>
-
-              {categories.map((cat) => (
+            {/* Category Filter Pills & View Switcher */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs flex-1 min-w-0">
                 <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+                  onClick={() => setSelectedCategory('all')}
                   className={`px-3.5 py-2 rounded-xl font-semibold whitespace-nowrap transition-all ${
-                    selectedCategory === cat
+                    selectedCategory === 'all'
                       ? 'bg-[#0F172A] text-white shadow-xs'
                       : 'bg-white text-slate-600 border border-[#E2E8F0] hover:bg-slate-50'
                   }`}
                 >
-                  {cat}
+                  Tous les patrons ({patterns.length})
                 </button>
-              ))}
+
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3.5 py-2 rounded-xl font-semibold whitespace-nowrap transition-all ${
+                      selectedCategory === cat
+                        ? 'bg-[#0F172A] text-white shadow-xs'
+                        : 'bg-white text-slate-600 border border-[#E2E8F0] hover:bg-slate-50'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* View Switcher: Table vs Grid */}
+              <div className="flex items-center bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs shrink-0">
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    viewMode === 'table'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                  title="Affichage en tableau"
+                >
+                  <Table className="w-3.5 h-3.5" />
+                  <span>Tableau</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('cards')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    viewMode === 'cards'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                  title="Affichage en cartes"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>Grille</span>
+                </button>
+              </div>
             </div>
           </div>
 
         </div>
       </div>
 
-      {/* Main Pattern Cards Grid */}
+      {/* Main Pattern Content: Table or Cards Grid */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
         {loading ? (
           <div className="py-20 text-center text-slate-400 text-xs">
@@ -283,7 +316,155 @@ export default function WorkerView() {
               Réinitialiser les filtres
             </button>
           </div>
+        ) : viewMode === 'table' ? (
+          /* === WORKER TABLE VIEW === */
+          <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold text-[11px] uppercase tracking-wider select-none">
+                    <th className="py-3 px-3 w-16 text-center">Photo</th>
+                    <th className="py-3 px-3 w-28">Référence (SKU)</th>
+                    <th className="py-3 px-4 min-w-[200px]">Modèle / Désignation</th>
+                    <th className="py-3 px-3 min-w-[120px]">Catégorie</th>
+                    <th className="py-3 px-3 min-w-[140px]">Tailles & Matière</th>
+                    <th className="py-3 px-4 text-center min-w-[130px]">Stock Actuel</th>
+                    <th className="py-3 px-4 text-center min-w-[220px]">Enregistrement Production</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {patterns.map((pattern) => {
+                    const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
+                    const isCritical = pattern.current_stock <= 3;
+
+                    return (
+                      <tr
+                        key={pattern.id}
+                        className="hover:bg-slate-50/80 transition-colors"
+                      >
+                        {/* Thumbnail */}
+                        <td className="py-3 px-3 text-center align-middle">
+                          {pattern.image_url ? (
+                            <img
+                              src={pattern.image_url}
+                              alt={pattern.name_fr}
+                              onClick={() =>
+                                setPreviewImage({
+                                  url: pattern.image_url,
+                                  title: pattern.name_fr || pattern.name_ar,
+                                  sku: pattern.sku,
+                                })
+                              }
+                              className="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-2xs hover:scale-110 cursor-pointer transition-transform mx-auto"
+                              title="Agrandir"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://placehold.co/100x100/f8f9fa/1e293b?text=Patron';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 mx-auto">
+                              <Scissors className="w-5 h-5 text-slate-400" />
+                            </div>
+                          )}
+                        </td>
+
+                        {/* SKU */}
+                        <td className="py-3 px-3 align-middle">
+                          <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 whitespace-nowrap inline-block">
+                            {pattern.sku}
+                          </span>
+                        </td>
+
+                        {/* Nom */}
+                        <td className="py-3 px-4 align-middle">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
+                            {pattern.name_fr || pattern.name_ar}
+                          </div>
+                          {pattern.name_ar && pattern.name_ar !== pattern.name_fr && (
+                            <div className="text-[11px] text-slate-500 font-medium mt-0.5" dir="rtl">
+                              {pattern.name_ar}
+                            </div>
+                          )}
+                          {pattern.notes && (
+                            <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 italic">
+                              {pattern.notes}
+                            </p>
+                          )}
+                        </td>
+
+                        {/* Catégorie */}
+                        <td className="py-3 px-3 align-middle">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80 whitespace-nowrap">
+                            {pattern.category}
+                          </span>
+                        </td>
+
+                        {/* Tailles & Matière */}
+                        <td className="py-3 px-3 align-middle text-[11px]">
+                          <div className="text-slate-700 font-medium truncate max-w-[140px]">
+                            <span className="text-slate-400 text-[10px]">Taille : </span>
+                            {pattern.size_range || 'Standard'}
+                          </div>
+                          <div className="text-slate-500 text-[10px] truncate max-w-[140px]">
+                            <span className="text-slate-400">Matière : </span>
+                            {pattern.material_type || '-'}
+                          </div>
+                        </td>
+
+                        {/* Stock */}
+                        <td className="py-3 px-4 text-center align-middle whitespace-nowrap">
+                          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                            isCritical
+                              ? 'bg-[#FEF2F2] text-[#B91C1C] border-red-200'
+                              : isLowStock
+                              ? 'bg-[#FFFBEB] text-[#B45309] border-amber-200'
+                              : 'bg-[#F0FDF4] text-[#15803D] border-green-200'
+                          }`}>
+                            <span className={`w-2 h-2 rounded-full ${
+                              isCritical ? 'bg-[#B91C1C]' : isLowStock ? 'bg-[#B45309]' : 'bg-[#15803D]'
+                            }`} />
+                            <span className="font-mono font-extrabold text-sm">{pattern.current_stock}</span>
+                            <span className="text-[10px] font-medium">pcs</span>
+                          </div>
+                          {isLowStock && (
+                            <div className="text-[10px] text-amber-600 font-medium mt-0.5">
+                              Seuil : {pattern.low_stock_threshold}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Fast Produce Buttons */}
+                        <td className="py-3 px-4 text-center align-middle whitespace-nowrap">
+                          <div className="inline-flex items-center gap-2 justify-center">
+                            <button
+                              onClick={() => handleProduceOne(pattern)}
+                              className="px-3 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+                              <span>+1 Produit</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedPattern(pattern);
+                                setCustomModalOpen(true);
+                              }}
+                              title="Quantité personnalisée"
+                              className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-transform active:scale-95 border border-slate-200 cursor-pointer"
+                            >
+                              <span>+5 / Autre</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ) : (
+          /* === WORKER CARDS GRID VIEW === */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3.5">
             {patterns.map((pattern) => {
               const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
