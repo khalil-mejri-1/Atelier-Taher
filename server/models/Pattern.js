@@ -46,6 +46,11 @@ const patternSchema = new mongoose.Schema(
       default: 'كرتون كرافت 350غ',
       trim: true,
     },
+    price: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     notes: {
       type: String,
       default: '',

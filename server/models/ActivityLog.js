@@ -58,6 +58,15 @@ const activityLogSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    unit_price: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    total_price: {
+      type: Number,
+      default: 0,
+    },
     notes: {
       type: String,
       default: '',

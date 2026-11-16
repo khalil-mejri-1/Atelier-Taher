@@ -76,7 +76,7 @@ async function seedData() {
       );
     }
 
-    // 2. Sample Garment Patterns in French
+    // 2. Sample Garment Patterns in French with Piece-Rate Prices (TND)
     const samplePatterns = [
       {
         sku: 'PAT-SHR-01',
@@ -85,6 +85,7 @@ async function seedData() {
         category: 'Chemises',
         current_stock: 26,
         low_stock_threshold: 10,
+        price: 2.500,
         size_range: '38 - 46 (S - XXL)',
         material_type: 'Carton Kraft 350g',
         notes: 'Patron complet avec col, manches montées et poche poitrine avec gradation.',
@@ -97,6 +98,7 @@ async function seedData() {
         category: 'Pantalons',
         current_stock: 14,
         low_stock_threshold: 8,
+        price: 3.500,
         size_range: '40 - 52',
         material_type: 'Carton Kraft 350g renforcé',
         notes: 'Modèle haute demande pour confection de costumes formels.',
@@ -109,6 +111,7 @@ async function seedData() {
         category: 'Robes',
         current_stock: 5,
         low_stock_threshold: 10,
+        price: 5.000,
         size_range: '36 - 44 (XS - L)',
         material_type: 'Papier patron de précision 120g',
         notes: 'Stock faible - Découpe laser à relancer urgemment.',
@@ -121,6 +124,7 @@ async function seedData() {
         category: 'Abayas & Djellabas',
         current_stock: 35,
         low_stock_threshold: 12,
+        price: 6.000,
         size_range: '52 - 60 (Taille Unique)',
         material_type: 'Carton semi-rigide 300g',
         notes: 'Manches larges avec repères de découpe et de broderie.',
@@ -133,6 +137,7 @@ async function seedData() {
         category: 'Vestes & Manteaux',
         current_stock: 3,
         low_stock_threshold: 8,
+        price: 7.500,
         size_range: '38 - 46',
         material_type: 'Carton Kraft épais 400g',
         notes: 'Stock critique ! Reste 3 pièces seulement dans l’entrepôt.',
@@ -145,6 +150,7 @@ async function seedData() {
         category: 'Enfants',
         current_stock: 48,
         low_stock_threshold: 15,
+        price: 2.000,
         size_range: '2 - 12 ans',
         material_type: 'Papier patron thermique 90g',
         notes: 'Production régulière pour atelier confection junior.',
@@ -157,6 +163,7 @@ async function seedData() {
         category: 'Sportswear',
         current_stock: 19,
         low_stock_threshold: 10,
+        price: 3.500,
         size_range: 'XS - 3XL',
         material_type: 'Carton Kraft 350g',
         notes: 'Patron streetwear avec capuche double épaisseur.',
@@ -169,6 +176,7 @@ async function seedData() {
         category: 'Robes',
         current_stock: 2,
         low_stock_threshold: 6,
+        price: 3.000,
         size_range: 'S - XL',
         material_type: 'Carton semi-rigide 300g',
         notes: 'Stock très critique - Commande atelier en attente.',
@@ -181,6 +189,7 @@ async function seedData() {
         category: 'Abayas & Djellabas',
         current_stock: 22,
         low_stock_threshold: 8,
+        price: 5.500,
         size_range: 'M - XXL',
         material_type: 'Carton Kraft 350g',
         notes: 'Comprend les repères de pose sfifa et broderies.',
@@ -193,6 +202,7 @@ async function seedData() {
         category: 'Pantalons',
         current_stock: 31,
         low_stock_threshold: 10,
+        price: 4.000,
         size_range: '28 - 38',
         material_type: 'Carton rigide 400g',
         notes: 'Confection robuste avec gabarit de poches et rivets.',
@@ -216,6 +226,7 @@ async function seedData() {
               material_type: p.material_type,
               notes: p.notes,
               image_url: p.image_url,
+              price: p.price,
             },
           }
         );

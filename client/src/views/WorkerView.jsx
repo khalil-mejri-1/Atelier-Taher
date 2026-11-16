@@ -9,7 +9,8 @@ import {
   Layers,
   RefreshCw,
   Table,
-  LayoutGrid
+  LayoutGrid,
+  Coins
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import { socket } from '../socket';
@@ -24,6 +25,7 @@ export default function WorkerView() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [todayCount, setTodayCount] = useState(0);
+  const [todayEarnings, setTodayEarnings] = useState(0);
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'cards'
 
   // Undo Toast state
@@ -42,17 +44,19 @@ export default function WorkerView() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [patRes, catRes, statsRes] = await Promise.all([
+      const [patRes, catRes, statsRes, dailyRes] = await Promise.all([
         patternsApi.getAll({
           category: selectedCategory === 'all' ? undefined : selectedCategory,
           search: search.trim() || undefined,
         }),
         patternsApi.getCategories(),
-        logsApi.getStats()
+        logsApi.getStats(),
+        logsApi.getDailyProduction().catch(() => ({ totalEarnings: 0 }))
       ]);
       setPatterns(patRes.patterns || []);
       setCategories(catRes.categories || []);
       setTodayCount(statsRes.producedToday || 0);
+      setTodayEarnings(dailyRes?.totalEarnings || 0);
     } catch (err) {
       console.error('Erreur chargement patrons opérateur :', err);
     } finally {
@@ -98,10 +102,12 @@ export default function WorkerView() {
   // One-Tap +1 Production
   const handleProduceOne = async (pattern) => {
     try {
+      const unitPrice = pattern.price || 0;
       setPatterns((prev) =>
         prev.map((p) => (p.id === pattern.id ? { ...p, current_stock: p.current_stock + 1 } : p))
       );
       setTodayCount((prev) => prev + 1);
+      setTodayEarnings((prev) => prev + unitPrice);
 
       const res = await patternsApi.produce(pattern.id, 1, 'Production rapide +1');
       
@@ -112,7 +118,8 @@ export default function WorkerView() {
         quantity: 1
       });
 
-      setFlashMessage(`+1 enregistré pour "${pattern.name_fr || pattern.name_ar}"`);
+      const priceMsg = unitPrice > 0 ? ` (+${unitPrice.toFixed(3)} DT)` : '';
+      setFlashMessage(`+1 enregistré pour "${pattern.name_fr || pattern.name_ar}"${priceMsg}`);
       setTimeout(() => setFlashMessage(''), 2500);
     } catch (err) {
       console.error(err);
@@ -123,11 +130,15 @@ export default function WorkerView() {
   // Custom quantity production
   const handleCustomProduce = async (patternId, quantity, notes) => {
     const pattern = patterns.find((p) => p.id === patternId);
+    const unitPrice = pattern?.price || 0;
+    const addedAmount = quantity * unitPrice;
+
     try {
       setPatterns((prev) =>
         prev.map((p) => (p.id === patternId ? { ...p, current_stock: p.current_stock + quantity } : p))
       );
       setTodayCount((prev) => prev + quantity);
+      setTodayEarnings((prev) => prev + addedAmount);
 
       const res = await patternsApi.produce(patternId, quantity, notes);
 
@@ -138,7 +149,8 @@ export default function WorkerView() {
         quantity
       });
 
-      setFlashMessage(`+${quantity} enregistré(s) avec succès`);
+      const priceMsg = addedAmount > 0 ? ` (+${addedAmount.toFixed(3)} DT)` : '';
+      setFlashMessage(`+${quantity} pièce(s) enregistrée(s)${priceMsg}`);
       setTimeout(() => setFlashMessage(''), 2500);
     } catch (err) {
       console.error(err);
@@ -180,20 +192,41 @@ export default function WorkerView() {
               </p>
             </div>
 
-            {/* Today Production Stat Badge */}
-            <div className="flex items-center gap-3 bg-[#F8F9FA] p-2.5 rounded-2xl border border-slate-200">
-              <div className="w-9 h-9 rounded-xl bg-[#F0FDF4] text-[#15803D] border border-green-200 flex items-center justify-center font-bold">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div className="text-left">
-                <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Total de la vacation
-                </span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-extrabold text-[#15803D] font-sku">
-                    +{todayCount}
+            {/* Today Production & Earnings Stat Badge */}
+            <div className="flex items-center gap-2.5 sm:gap-4 bg-[#F8F9FA] p-2 sm:p-2.5 rounded-2xl border border-slate-200">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#F0FDF4] text-[#15803D] border border-green-200 flex items-center justify-center font-bold shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="block text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    Pièces du jour
                   </span>
-                  <span className="text-xs text-slate-600 font-medium">patrons coupés</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-base sm:text-xl font-extrabold text-[#15803D] font-sku">
+                      +{todayCount}
+                    </span>
+                    <span className="text-[10px] sm:text-xs text-slate-600 font-medium">pcs</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="h-7 w-px bg-slate-200" />
+
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center font-bold shrink-0">
+                  <Coins className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="block text-[9px] sm:text-[10px] text-emerald-700 font-bold uppercase tracking-wider">
+                    Gains du jour
+                  </span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-base sm:text-xl font-extrabold text-emerald-700 font-mono">
+                      {todayEarnings.toFixed(3)}
+                    </span>
+                    <span className="text-[10px] sm:text-xs text-emerald-800 font-bold">DT</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -328,6 +361,7 @@ export default function WorkerView() {
                     <th className="py-3 px-4 min-w-[200px]">Modèle / Désignation</th>
                     <th className="py-3 px-3 min-w-[120px]">Catégorie</th>
                     <th className="py-3 px-3 min-w-[140px]">Tailles & Matière</th>
+                    <th className="py-3 px-3 text-center min-w-[110px]">Tarif / Pièce</th>
                     <th className="py-3 px-4 text-center min-w-[130px]">Stock Actuel</th>
                     <th className="py-3 px-4 text-center min-w-[220px]">Enregistrement Production</th>
                   </tr>
@@ -410,6 +444,13 @@ export default function WorkerView() {
                             <span className="text-slate-400">Matière : </span>
                             {pattern.material_type || '-'}
                           </div>
+                        </td>
+
+                        {/* Tarif unitaire */}
+                        <td className="py-3 px-3 text-center align-middle whitespace-nowrap">
+                          <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            {parseFloat(pattern.price || 0).toFixed(3)} DT
+                          </span>
                         </td>
 
                         {/* Stock */}
@@ -537,6 +578,9 @@ export default function WorkerView() {
                         <div className="flex items-center gap-1 flex-wrap">
                           <span className="text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded">
                             {pattern.category}
+                          </span>
+                          <span className="text-[9px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                            {parseFloat(pattern.price || 0).toFixed(3)} DT
                           </span>
                           {pattern.size_range && (
                             <span className="text-[9px] text-slate-400 font-sku">

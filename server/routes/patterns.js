@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Pattern from '../models/Pattern.js';
 import Category from '../models/Category.js';
 import ActivityLog from '../models/ActivityLog.js';
+import User from '../models/User.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 export function createPatternsRouter(io) {
@@ -156,12 +157,26 @@ export function createPatternsRouter(io) {
       pattern.current_stock = newStock;
       await pattern.save();
 
+      const unitPrice = typeof pattern.price === 'number' ? pattern.price : 0;
+      const totalPrice = qty * unitPrice;
+
+      // Créditer le solde de l'ouvrier si utilisateur valide
+      let updatedBalance = 0;
+      if (req.user && req.user._id && totalPrice > 0) {
+        const updatedUser = await User.findByIdAndUpdate(
+          req.user._id,
+          { $inc: { balance: totalPrice } },
+          { new: true }
+        );
+        if (updatedUser) updatedBalance = updatedUser.balance;
+      }
+
       const actionType = qty === 1 ? 'production_increment' : 'production_custom';
       const logNote = notes.trim()
         ? notes.trim()
         : qty === 1
-        ? 'Production immédiate +1'
-        : `Production d'un lot +${qty}`;
+        ? `Production immédiate +1 (${unitPrice.toFixed(3)} DT)`
+        : `Production d'un lot +${qty} (${totalPrice.toFixed(3)} DT)`;
 
       const log = await ActivityLog.create({
         action_type: actionType,
@@ -174,6 +189,8 @@ export function createPatternsRouter(io) {
         quantity_changed: qty,
         previous_stock: prevStock,
         new_stock: newStock,
+        unit_price: unitPrice,
+        total_price: totalPrice,
         notes: logNote,
         undone: 0,
       });
@@ -184,17 +201,27 @@ export function createPatternsRouter(io) {
         quantity: qty,
         user: req.user.name,
         logId: log._id.toString(),
+        totalPrice,
       });
 
       if (io) {
         io.emit('activity_logged', { log });
+        io.emit('worker_production_recorded', {
+          workerId: req.user._id,
+          workerName: req.user.name,
+          quantity: qty,
+          earned: totalPrice,
+          balance: updatedBalance,
+        });
       }
 
       res.json({
         success: true,
-        message: `Production de +${qty} enregistrée avec succès`,
+        message: `Production de +${qty} enregistrée (+${totalPrice.toFixed(3)} DT)`,
         pattern,
         logId: log._id.toString(),
+        earned: totalPrice,
+        unitPrice,
       });
     } catch (err) {
       console.error('Erreur lors de la production :', err);
@@ -239,6 +266,14 @@ export function createPatternsRouter(io) {
       log.undone = 1;
       await log.save();
 
+      // Déduire le montant annulé du solde de l'ouvrier si applicable
+      const rollbackAmount = log.total_price || (rollbackQty * (pattern.price || 0));
+      if (log.user_id && rollbackAmount > 0) {
+        await User.findByIdAndUpdate(log.user_id, {
+          $inc: { balance: -rollbackAmount },
+        });
+      }
+
       const undoLog = await ActivityLog.create({
         action_type: 'production_undo',
         user_id: req.user._id,
@@ -250,6 +285,8 @@ export function createPatternsRouter(io) {
         quantity_changed: -rollbackQty,
         previous_stock: prevStock,
         new_stock: newStock,
+        unit_price: log.unit_price || pattern.price || 0,
+        total_price: -rollbackAmount,
         notes: `Annulation de la production précédente (-${rollbackQty})`,
         undone: 0,
       });
@@ -361,6 +398,7 @@ export function createPatternsRouter(io) {
         low_stock_threshold = 10,
         size_range = 'S - XXL',
         material_type = 'Carton Kraft 350g',
+        price = 0,
         notes = '',
         image_url = '',
       } = req.body;
@@ -405,6 +443,7 @@ export function createPatternsRouter(io) {
         low_stock_threshold: threshold,
         size_range: size_range.trim(),
         material_type: material_type.trim(),
+        price: Math.max(0, parseFloat(price) || 0),
         notes: notes.trim(),
         image_url: image_url ? image_url.trim() : '',
       });
@@ -455,6 +494,7 @@ export function createPatternsRouter(io) {
         low_stock_threshold = pattern.low_stock_threshold,
         size_range = pattern.size_range,
         material_type = pattern.material_type,
+        price = pattern.price,
         notes = pattern.notes,
         image_url = pattern.image_url,
       } = req.body;
@@ -480,6 +520,9 @@ export function createPatternsRouter(io) {
       pattern.low_stock_threshold = thresholdNum;
       pattern.size_range = size_range.trim();
       pattern.material_type = material_type.trim();
+      if (price !== undefined) {
+        pattern.price = Math.max(0, parseFloat(price) || 0);
+      }
       pattern.notes = notes.trim();
       if (image_url !== undefined) {
         pattern.image_url = image_url ? image_url.trim() : '';

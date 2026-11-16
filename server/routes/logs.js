@@ -1,6 +1,8 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Pattern from '../models/Pattern.js';
 import ActivityLog from '../models/ActivityLog.js';
+import User from '../models/User.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -42,6 +44,116 @@ router.get('/', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Erreur récupération logs :', err);
     res.status(500).json({ message: 'Erreur lors de la récupération du journal d’activité' });
+  }
+});
+
+// GET /api/logs/daily-production : Suivi journalier détaillé de la production des ouvriers et calcul des gains
+router.get('/daily-production', authenticateToken, async (req, res) => {
+  try {
+    const { date, worker_id } = req.query;
+
+    let targetDate = new Date();
+    if (date) {
+      const parts = date.split('-');
+      if (parts.length === 3) {
+        targetDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      } else {
+        targetDate = new Date(date);
+      }
+    }
+    if (isNaN(targetDate.getTime())) targetDate = new Date();
+
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const matchFilter = {
+      action_type: { $in: ['production_increment', 'production_custom'] },
+      undone: 0,
+      created_at: { $gte: startOfDay, $lte: endOfDay },
+    };
+
+    if (worker_id && worker_id !== 'all') {
+      if (mongoose.Types.ObjectId.isValid(worker_id)) {
+        matchFilter.user_id = new mongoose.Types.ObjectId(worker_id);
+      }
+    }
+
+    const logs = await ActivityLog.find(matchFilter)
+      .populate('pattern_id', 'image_url price')
+      .sort({ created_at: -1 });
+
+    let totalQuantity = 0;
+    let totalEarnings = 0;
+    const workerMap = {};
+
+    logs.forEach((log) => {
+      const qty = log.quantity_changed || 0;
+      const amount = typeof log.total_price === 'number'
+        ? log.total_price
+        : (qty * (log.unit_price || 0));
+
+      totalQuantity += qty;
+      totalEarnings += amount;
+
+      const uid = log.user_id ? log.user_id.toString() : 'unknown';
+      if (!workerMap[uid]) {
+        workerMap[uid] = {
+          worker_id: log.user_id,
+          worker_name: log.user_name || 'Opérateur inconnu',
+          total_pieces: 0,
+          total_earned: 0,
+          patterns: {},
+        };
+      }
+
+      workerMap[uid].total_pieces += qty;
+      workerMap[uid].total_earned += amount;
+
+      const pKey = log.pattern_sku || log.pattern_name || 'Sans Nom';
+      if (!workerMap[uid].patterns[pKey]) {
+        workerMap[uid].patterns[pKey] = {
+          pattern_sku: log.pattern_sku,
+          pattern_name: log.pattern_name,
+          unit_price: log.unit_price || 0,
+          quantity: 0,
+          total_amount: 0,
+        };
+      }
+      workerMap[uid].patterns[pKey].quantity += qty;
+      workerMap[uid].patterns[pKey].total_amount += amount;
+    });
+
+    const workersSummary = Object.values(workerMap).map((w) => ({
+      worker_id: w.worker_id,
+      worker_name: w.worker_name,
+      total_pieces: w.total_pieces,
+      total_earned: parseFloat(w.total_earned.toFixed(3)),
+      patterns_breakdown: Object.values(w.patterns),
+    }));
+
+    // Liste des ouvriers pour le filtre
+    const allWorkers = await User.find({ role: 'worker' }, '_id name username balance status').sort({ name: 1 });
+
+    const yyyy = targetDate.getFullYear();
+    const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(targetDate.getDate()).padStart(2, '0');
+    const formattedDate = `${yyyy}-${mm}-${dd}`;
+
+    res.json({
+      date: formattedDate,
+      totalQuantity,
+      totalEarnings: parseFloat(totalEarnings.toFixed(3)),
+      activeWorkersCount: workersSummary.length,
+      workersSummary,
+      allWorkers,
+      logs,
+    });
+  } catch (err) {
+    console.error('Erreur rapport journalier de production :', err);
+    res.status(500).json({ message: 'Erreur lors de la récupération du rapport journalier' });
   }
 });
 

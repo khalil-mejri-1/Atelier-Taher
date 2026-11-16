@@ -101,6 +101,13 @@ export const logsApi = {
     return apiRequest(`/logs${queryString}`);
   },
   getStats: () => apiRequest('/logs/stats'),
+  getDailyProduction: (date, workerId) => {
+    const query = new URLSearchParams();
+    if (date) query.append('date', date);
+    if (workerId && workerId !== 'all') query.append('worker_id', workerId);
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    return apiRequest(`/logs/daily-production${queryString}`);
+  },
 };
 
 // Workers API

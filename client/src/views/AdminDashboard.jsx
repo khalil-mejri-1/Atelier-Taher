@@ -15,13 +15,16 @@ import {
   Image as ImageIcon,
   Tag,
   Table,
-  LayoutGrid
+  LayoutGrid,
+  Calendar,
+  Coins
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import { socket } from '../socket';
 import KpiCards from '../components/KpiCards';
 import ActivityLogFeed from '../components/ActivityLogFeed';
 import WorkerAccountsView from '../components/WorkerAccountsView';
+import DailyProductionTracker from '../components/DailyProductionTracker';
 import OrderFulfillModal from '../components/OrderFulfillModal';
 import PatternEditModal from '../components/PatternEditModal';
 import BulkActionModal from '../components/BulkActionModal';
@@ -227,30 +230,54 @@ export default function AdminDashboard() {
         )}
 
         {/* Mobile View Header & Action Bar */}
-        <div className="sm:hidden mb-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-extrabold text-[#0F172A] flex items-center gap-1.5 truncate">
-              {activeTab === 'inventory' && (
-                <>
-                  <Layers className="w-4 h-4 text-slate-700 shrink-0" />
-                  <span>Stock ({patterns.length})</span>
-                </>
-              )}
-              {activeTab === 'logs' && (
-                <>
-                  <History className="w-4 h-4 text-slate-700 shrink-0" />
-                  <span>Journal ({logs.length})</span>
-                </>
-              )}
-              {activeTab === 'workers' && (
-                <>
-                  <Users className="w-4 h-4 text-slate-700 shrink-0" />
-                  <span>Opérateurs</span>
-                </>
-              )}
-            </h2>
+        <div className="sm:hidden mb-4 space-y-2">
+          {/* Mobile Tab Switcher Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+            <button
+              onClick={() => setActiveTab('inventory')}
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+                activeTab === 'inventory'
+                  ? 'bg-[#0F172A] text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-[#E2E8F0]'
+              }`}
+            >
+              📦 Stock ({patterns.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('daily')}
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+                activeTab === 'daily'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-[#E2E8F0]'
+              }`}
+            >
+              📅 Suivi Journalier
+            </button>
+            <button
+              onClick={() => setActiveTab('workers')}
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+                activeTab === 'workers'
+                  ? 'bg-[#0F172A] text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-[#E2E8F0]'
+              }`}
+            >
+              👷 Ouvriers
+            </button>
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+                activeTab === 'logs'
+                  ? 'bg-[#0F172A] text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-[#E2E8F0]'
+              }`}
+            >
+              📋 Journal ({logs.length})
+            </button>
+          </div>
 
-            {activeTab === 'inventory' && (
+          {activeTab === 'inventory' && (
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <span className="text-xs font-bold text-slate-700">Gestion du catalogue</span>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => setCategoryModalOpen(true)}
@@ -272,8 +299,8 @@ export default function AdminDashboard() {
                   <span>Ajouter</span>
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Desktop View Tabs Navigation */}
@@ -281,7 +308,7 @@ export default function AdminDashboard() {
           <div className="flex gap-2">
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${
+              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'inventory'
                   ? 'border-[#0F172A] text-[#0F172A]'
                   : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -292,20 +319,20 @@ export default function AdminDashboard() {
             </button>
 
             <button
-              onClick={() => setActiveTab('logs')}
-              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${
-                activeTab === 'logs'
-                  ? 'border-[#0F172A] text-[#0F172A]'
+              onClick={() => setActiveTab('daily')}
+              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                activeTab === 'daily'
+                  ? 'border-emerald-600 text-emerald-700'
                   : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
             >
-              <History className="w-4 h-4" />
-              <span>Journal d'audit ({logs.length})</span>
+              <Calendar className="w-4 h-4 text-emerald-600" />
+              <span>Suivi Journalier Ouvriers (Gains)</span>
             </button>
 
             <button
               onClick={() => setActiveTab('workers')}
-              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors ${
+              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'workers'
                   ? 'border-[#0F172A] text-[#0F172A]'
                   : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -313,6 +340,18 @@ export default function AdminDashboard() {
             >
               <Users className="w-4 h-4" />
               <span>Comptes opérateurs</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                activeTab === 'logs'
+                  ? 'border-[#0F172A] text-[#0F172A]'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <History className="w-4 h-4" />
+              <span>Journal d'audit ({logs.length})</span>
             </button>
           </div>
 
@@ -497,6 +536,7 @@ export default function AdminDashboard() {
                         <th className="py-3 px-4 min-w-[200px]">Modèle / Désignation</th>
                         <th className="py-3 px-3 min-w-[120px]">Catégorie</th>
                         <th className="py-3 px-3 min-w-[140px]">Tailles & Matière</th>
+                        <th className="py-3 px-3 text-center min-w-[110px]">Tarif / Pièce</th>
                         <th className="py-3 px-4 text-center min-w-[140px]">Stock Disponible</th>
                         <th className="py-3 px-4 text-center min-w-[190px]">Déstockage Rapide</th>
                         <th className="py-3 px-4 text-right min-w-[90px]">Actions</th>
@@ -597,6 +637,13 @@ export default function AdminDashboard() {
                                 <span className="text-slate-400">Matière : </span>
                                 {pattern.material_type || '-'}
                               </div>
+                            </td>
+
+                            {/* Tarif / Pièce */}
+                            <td className="py-3 px-3 text-center align-middle whitespace-nowrap">
+                              <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 inline-block shadow-2xs">
+                                {parseFloat(pattern.price || 0).toFixed(3)} DT
+                              </span>
                             </td>
 
                             {/* Stock Disponible */}
@@ -762,9 +809,14 @@ export default function AdminDashboard() {
                                   {pattern.name_ar}
                                 </p>
                               )}
-                              <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium mt-1 inline-block">
-                                {pattern.category}
-                              </span>
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-medium inline-block">
+                                  {pattern.category}
+                                </span>
+                                <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 inline-block">
+                                  {parseFloat(pattern.price || 0).toFixed(3)} DT
+                                </span>
+                              </div>
                             </div>
                           </div>
 
@@ -830,12 +882,17 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Tab 2: Activity Logs Audit Trail */}
+        {/* Tab 2: Daily Production & Worker Earnings Tracker */}
+        {activeTab === 'daily' && (
+          <DailyProductionTracker onPreviewImage={setPreviewImage} />
+        )}
+
+        {/* Tab 3: Activity Logs Audit Trail */}
         {activeTab === 'logs' && (
           <ActivityLogFeed logs={logs} />
         )}
 
-        {/* Tab 3: Worker Account Management */}
+        {/* Tab 4: Worker Account Management */}
         {activeTab === 'workers' && (
           <WorkerAccountsView />
         )}

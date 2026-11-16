@@ -45,6 +45,7 @@ export default function PatternEditModal({
     category: 'Chemises',
     current_stock: 0,
     low_stock_threshold: 10,
+    price: 0,
     size_range: 'S - XXL',
     material_type: 'Carton Kraft 350g',
     notes: '',
@@ -70,6 +71,7 @@ export default function PatternEditModal({
         category: pattern.category || (categoryList[0] || 'Chemises'),
         current_stock: pattern.current_stock ?? 0,
         low_stock_threshold: pattern.low_stock_threshold ?? 10,
+        price: pattern.price ?? 0,
         size_range: pattern.size_range || 'S - XXL',
         material_type: pattern.material_type || 'Carton Kraft 350g',
         notes: pattern.notes || '',
@@ -83,6 +85,7 @@ export default function PatternEditModal({
         category: categoryList[0] || 'Chemises',
         current_stock: 10,
         low_stock_threshold: 8,
+        price: 2.500,
         size_range: '38 - 48 (S - XXL)',
         material_type: 'Carton Kraft 350g',
         notes: '',
@@ -425,6 +428,30 @@ export default function PatternEditModal({
               placeholder="Ex : قميص رجالي كلاسيك"
               className="w-full px-3 py-2 text-xs border border-[#E2E8F0] rounded-xl focus:outline-hidden focus:border-slate-800"
             />
+          </div>
+
+          {/* Price / Tarif de production de la pièce */}
+          <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/80">
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-emerald-900">
+                Tarif / Prix de la pièce (DT) - سعر إنجاز القطعة للعامل :
+              </label>
+              <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                {parseFloat(formData.price || 0).toFixed(3)} TND
+              </span>
+            </div>
+            <input
+              type="number"
+              step="0.05"
+              min="0"
+              value={formData.price}
+              onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+              placeholder="Ex : 2.500"
+              className="w-full px-3 py-2 text-xs font-mono font-bold bg-white text-slate-900 border border-emerald-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+            />
+            <p className="text-[10px] text-emerald-700 mt-1">
+              💡 يضاف هذا المبلغ آلياً إلى رصيد وحساب العامل في كل مرة يقوم فيها بإنتاج قطعة من هذا الموديل.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -36,6 +36,11 @@ const userSchema = new mongoose.Schema(
       default: 'active',
       required: true,
     },
+    balance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
