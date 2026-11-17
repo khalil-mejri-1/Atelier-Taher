@@ -13,12 +13,14 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { logsApi, patternsApi } from '../api';
+import { useDialog } from '../context/DialogContext';
 
 export default function MyPrintsHistoryModal({
   isOpen,
   onClose,
   onPrintsChanged
 }) {
+  const { confirm, showNotice, notify } = useDialog();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
@@ -58,9 +60,17 @@ export default function MyPrintsHistoryModal({
     const qty = log.quantity_changed || 1;
     const amount = typeof log.total_price === 'number' ? log.total_price : 0;
 
-    const confirmMsg = `هل أنت متأكد من حذف وإلغاء هذه الطباعة؟\n• الموديل : ${patternName}\n• الكمية : ${qty} قطعة\n• المبلغ : -${amount.toFixed(3)} DT\n\nسيتم إنقاص هذه الكمية من المخزون وخصم المبلغ من أرباحك.`;
+    const confirmed = await confirm({
+      title: "Annuler cette impression",
+      titleAr: "تأكيد حذف وإلغاء الطباعة",
+      message: `Voulez-vous vraiment supprimer l'impression de "${patternName}" (${qty} pièce(s)) ?`,
+      messageAr: `هل أنت متأكد من حذف هذه الطباعة؟ سيتم إنقاص (${qty}) قطعة من المخزون وخصم -${amount.toFixed(3)} DT من رصيدك.`,
+      type: "danger",
+      confirmText: "Oui, supprimer / نعم، احذف",
+      cancelText: "Annuler / تراجع"
+    });
 
-    if (!confirm(confirmMsg)) return;
+    if (!confirmed) return;
 
     setDeletingId(log._id);
     setError('');
@@ -297,3 +307,4 @@ export default function MyPrintsHistoryModal({
     </div>
   );
 }
+

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Tag, Plus, Trash2, AlertCircle, Check, Folder, Layers } from 'lucide-react';
 import { categoriesApi } from '../api';
+import { useDialog } from '../context/DialogContext';
 
 export default function CategoryManageModal({ isOpen, onClose, onCategoriesChanged }) {
+  const { confirm, notify } = useDialog();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -64,11 +66,21 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoriesChang
 
   const handleDeleteCategory = async (cat) => {
     const hasPatterns = cat.patternCount > 0;
-    const confirmPrompt = hasPatterns
-      ? `Cette catégorie contient ${cat.patternCount} patron(s).\n\nEn la supprimant, ces patrons seront automatiquement conservés et déplacés vers la catégorie "Autre".\n\nVoulez-vous vraiment supprimer "${cat.name}" ?`
-      : `Êtes-vous sûr de vouloir supprimer définitivement la catégorie "${cat.name}" ?`;
+    const confirmed = await confirm({
+      title: "Supprimer la catégorie",
+      titleAr: "تأكيد حذف الفئة",
+      message: hasPatterns
+        ? `Cette catégorie contient ${cat.patternCount} patron(s). En la supprimant, ces patrons seront automatiquement conservés et déplacés vers la catégorie "Autre".`
+        : `Êtes-vous sûr de vouloir supprimer définitivement la catégorie "${cat.name}" ?`,
+      messageAr: hasPatterns
+        ? `تحتوي هذه الفئة على (${cat.patternCount}) باترون. سيتم نقل هذه الباترونات تلقائياً إلى فئة "Autre" لحمايتها من الضياع.`
+        : `هل أنت متأكد من حذف فئة "${cat.name}" نهائياً من النظام؟`,
+      type: "danger",
+      confirmText: "Oui, supprimer / نعم، احذف الفئة",
+      cancelText: "Annuler / تراجع"
+    });
 
-    if (!window.confirm(confirmPrompt)) {
+    if (!confirmed) {
       return;
     }
 
@@ -78,14 +90,18 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoriesChang
 
     try {
       const res = await categoriesApi.delete(cat.id || cat._id, 'Autre');
-      setSuccess(res.message || `Catégorie "${cat.name}" supprimée`);
+      const successMsg = res.message || `Catégorie "${cat.name}" supprimée`;
+      setSuccess(successMsg);
+      notify.success(successMsg);
       await fetchCategories();
       if (onCategoriesChanged) {
         onCategoriesChanged();
       }
       setTimeout(() => setSuccess(''), 3500);
     } catch (err) {
-      setError(err.message || 'Échec de la suppression de la catégorie');
+      const errorMsg = err.message || 'Échec de la suppression de la catégorie';
+      setError(errorMsg);
+      notify.error(errorMsg);
     } finally {
       setDeletingId(null);
     }

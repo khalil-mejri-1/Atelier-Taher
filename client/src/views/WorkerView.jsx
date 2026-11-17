@@ -21,8 +21,10 @@ import ProduceCustomModal from '../components/ProduceCustomModal';
 import ProducePartsModal from '../components/ProducePartsModal';
 import ImagePreviewModal from '../components/ImagePreviewModal';
 import MyPrintsHistoryModal from '../components/MyPrintsHistoryModal';
+import { useDialog } from '../context/DialogContext';
 
 export default function WorkerView() {
+  const { notify } = useDialog();
   const [patterns, setPatterns] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -226,11 +228,12 @@ export default function WorkerView() {
     try {
       await patternsApi.undoProduce(logId);
       setUndoData(null);
+      notify.success('Opération annulée et stock restauré avec succès');
       setFlashMessage(`Opération annulée et stock restauré avec succès`);
       setTimeout(() => setFlashMessage(''), 3000);
       loadData();
     } catch (err) {
-      alert(err.message || 'Échec de l’annulation de l’opération');
+      notify.error(err.message || 'Échec de l’annulation de l’opération');
     }
   };
 

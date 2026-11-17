@@ -31,8 +31,10 @@ import PatternEditModal from '../components/PatternEditModal';
 import BulkActionModal from '../components/BulkActionModal';
 import ImagePreviewModal from '../components/ImagePreviewModal';
 import CategoryManageModal from '../components/CategoryManageModal';
+import { useDialog } from '../context/DialogContext';
 
 export default function AdminDashboard() {
+  const { confirm, showNotice, notify } = useDialog();
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'logs' | 'workers'
   const [patterns, setPatterns] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -150,16 +152,18 @@ export default function AdminDashboard() {
 
   // Quick -1 deduction
   const handleQuickDeductOne = async (pattern) => {
+    const patternName = pattern.name_fr || pattern.name_ar;
     if (pattern.current_stock <= 0) {
-      alert(`Désolé, le patron "${pattern.name_fr || pattern.name_ar}" est en rupture de stock`);
+      notify.warning(`Désolé, le patron "${patternName}" est en rupture de stock`);
       return;
     }
     try {
       await patternsApi.deductOrder(pattern.id, 1, 'Expédition rapide -1');
-      setFeedback(`1 pièce déduite pour "${pattern.name_fr || pattern.name_ar}"`);
+      notify.success(`1 pièce déduite pour "${patternName}"`);
+      setFeedback(`1 pièce déduite pour "${patternName}"`);
       setTimeout(() => setFeedback(''), 3000);
     } catch (err) {
-      alert(err.message || 'Échec de la déduction');
+      notify.error(err.message || 'Échec de la déduction');
     }
   };
 
@@ -185,17 +189,29 @@ export default function AdminDashboard() {
 
   // Delete single pattern
   const handleDeletePattern = async (pattern) => {
-    if (!confirm(`Supprimer définitivement le patron "${pattern.name_fr || pattern.name_ar}" du catalogue ?`)) {
+    const patternName = pattern.name_fr || pattern.name_ar;
+    const confirmed = await confirm({
+      title: "Supprimer ce patron",
+      titleAr: "تأكيد حذف الباترون نهائياً",
+      message: `Êtes-vous sûr de vouloir supprimer définitivement le patron "${patternName}" (SKU: ${pattern.sku || 'N/A'}) du catalogue ?`,
+      messageAr: `هل أنت متأكد من حذف موديل "${patternName}" نهائياً من قاعدة البيانات؟ لا يمكن التراجع عن هذه العملية.`,
+      type: "danger",
+      confirmText: "Oui, supprimer définitivement / نعم، احذف الباترون",
+      cancelText: "Annuler / تراجع"
+    });
+
+    if (!confirmed) {
       return;
     }
     try {
       await patternsApi.delete(pattern.id);
-      setFeedback(`Patron "${pattern.name_fr || pattern.name_ar}" supprimé`);
+      notify.success(`Patron "${patternName}" supprimé avec succès`);
+      setFeedback(`Patron "${patternName}" supprimé`);
       setSelectedIds((prev) => prev.filter((id) => id !== pattern.id));
       await loadData();
       setTimeout(() => setFeedback(''), 3500);
     } catch (err) {
-      alert(err.message || 'Échec de la suppression');
+      notify.error(err.message || 'Échec de la suppression');
     }
   };
 

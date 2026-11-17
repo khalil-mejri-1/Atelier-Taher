@@ -18,8 +18,10 @@ import {
   Trash2
 } from 'lucide-react';
 import { logsApi, patternsApi } from '../api';
+import { useDialog } from '../context/DialogContext';
 
 export default function DailyProductionTracker({ onPreviewImage }) {
+  const { confirm, showNotice, notify } = useDialog();
   // Format today's date YYYY-MM-DD
   const getTodayString = () => {
     const d = new Date();
@@ -119,15 +121,29 @@ export default function DailyProductionTracker({ onPreviewImage }) {
     const qty = log.quantity_changed || 1;
     const amount = typeof log.total_price === 'number' ? log.total_price : 0;
 
-    const confirmMsg = `Voulez-vous vraiment annuler et supprimer cette impression ?\n\n• Modèle : ${patternName}\n• Ouvrier : ${workerName}\n• Quantité : -${qty} pcs (déduite du stock)\n• Montant : -${amount.toFixed(3)} DT (déduit du solde)\n\nCette action restaurera le stock et déduira les gains.`;
+    const confirmed = await confirm({
+      title: "Annuler cette opération de production",
+      titleAr: "تأكيد حذف وإلغاء هذه العملية",
+      message: `Voulez-vous vraiment annuler l'impression de "${patternName}" par ${workerName} ?`,
+      messageAr: `الموديل : ${patternName} • العامل : ${workerName} • الكمية : ${qty} قطعة • سيتم خصم -${amount.toFixed(3)} DT واسترجاع المخزون.`,
+      type: "danger",
+      confirmText: "Oui, supprimer / نعم، احذف",
+      cancelText: "Annuler / تراجع"
+    });
 
-    if (!confirm(confirmMsg)) return;
+    if (!confirmed) return;
 
     try {
       await patternsApi.undoProduce(log._id);
+      notify.success(`Impression de "${patternName}" supprimée avec succès`);
       await loadDailyReport();
     } catch (err) {
-      alert(err.message || 'Erreur lors de la suppression de l’impression');
+      showNotice({
+        title: "Erreur",
+        titleAr: "خطأ",
+        message: err.message || 'Erreur lors de la suppression de l’impression',
+        type: "error"
+      });
     }
   };
 
@@ -407,26 +423,7 @@ export default function DailyProductionTracker({ onPreviewImage }) {
 
                   const hasParts = patternData.has_parts || (Array.isArray(patternData.parts) && patternData.parts.length > 0);
 
-                  // Delete/Cancel a production log
-  const handleDeleteLog = async (log) => {
-    const patternName = log.pattern_name || log.pattern_id?.name_fr || 'ce patron';
-    const workerName = log.user_name || 'cet ouvrier';
-    const qty = log.quantity_changed || 1;
-    const amount = typeof log.total_price === 'number' ? log.total_price : 0;
-
-    const confirmMsg = `Voulez-vous vraiment annuler et supprimer cette impression ?\n\n• Modèle : ${patternName}\n• Ouvrier : ${workerName}\n• Quantité : -${qty} pcs (déduite du stock)\n• Montant : -${amount.toFixed(3)} DT (déduit du solde)\n\nCette action restaurera le stock et déduira les gains.`;
-
-    if (!confirm(confirmMsg)) return;
-
-    try {
-      await patternsApi.undoProduce(log._id);
-      await loadDailyReport();
-    } catch (err) {
-      alert(err.message || 'Erreur lors de la suppression de l’impression');
-    }
-  };
-
-  return (
+                  return (
                     <tr 
                       key={log._id} 
                       className="hover:bg-slate-50/80 transition-colors group"

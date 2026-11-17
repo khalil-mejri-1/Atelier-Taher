@@ -13,8 +13,10 @@ import {
 } from 'lucide-react';
 import { workersApi } from '../api';
 import WorkerManageModal from './WorkerManageModal';
+import { useDialog } from '../context/DialogContext';
 
 export default function WorkerAccountsView() {
+  const { confirm, notify } = useDialog();
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -53,25 +55,37 @@ export default function WorkerAccountsView() {
 
   const handleToggleStatus = async (worker) => {
     const nextStatus = worker.status === 'active' ? 'suspended' : 'active';
+    const statusTextFr = nextStatus === 'active' ? 'activé' : 'suspendu';
     try {
       await workersApi.update(worker.id, { status: nextStatus });
+      notify.success(`Compte "${worker.name}" ${statusTextFr} avec succès`);
       await loadWorkers();
     } catch (err) {
-      alert(err.message || 'Échec du changement de statut');
+      notify.error(err.message || 'Échec du changement de statut');
     }
   };
 
   const handleDelete = async (worker) => {
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement le compte de "${worker.name}" (@${worker.username}) ?`)) {
+    const confirmed = await confirm({
+      title: "Supprimer ce compte",
+      titleAr: "تأكيد حذف الحساب نهائياً",
+      message: `Êtes-vous sûr de vouloir supprimer définitivement le compte de "${worker.name}" (@${worker.username}) ? Cette action est irréversible.`,
+      messageAr: `هل أنت متأكد من حذف حساب "${worker.name}" (@${worker.username}) نهائياً؟ سيتم إلغاء صلاحية الوصول إلى النظام.`,
+      type: "danger",
+      confirmText: "Oui, supprimer définitivement / نعم، احذف الحساب",
+      cancelText: "Annuler / تراجع"
+    });
+    if (!confirmed) {
       return;
     }
     try {
       await workersApi.delete(worker.id);
+      notify.success(`Compte de ${worker.name} supprimé définitivement`);
       setMessage(`Compte de ${worker.name} supprimé définitivement`);
       await loadWorkers();
       setTimeout(() => setMessage(''), 4000);
     } catch (err) {
-      alert(err.message || 'Échec de la suppression');
+      notify.error(err.message || 'Échec de la suppression');
     }
   };
 
