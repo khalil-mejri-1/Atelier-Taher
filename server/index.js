@@ -47,6 +47,15 @@ app.use('/api/categories', createCategoriesRouter(io));
 app.use('/api/logs', logsRouter);
 app.use('/api/workers', workersRouter);
 
+// Root backend welcome route
+app.get('/', (req, res) => {
+  res.send('server run');
+});
+
+app.get('/api', (req, res) => {
+  res.send('server run');
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
