@@ -41,7 +41,7 @@ export function createPatternsRouter() {
       const total = await Pattern.countDocuments(filter);
 
       let query = Pattern.find(filter).sort({
-        current_stock: 1,
+        current_stock: -1,
         _id: -1,
       });
 

@@ -182,19 +182,21 @@ export default function WorkerView() {
     }
   };
 
-  // Filtrage local instantané à 0ms pendant la frappe
+  // Filtrage local instantané à 0ms pendant la frappe (trié par stock décroissant)
   const displayedPatterns = useMemo(() => {
+    let list = patterns;
     const term = search.trim().toLowerCase();
-    if (!term) return patterns;
-
-    const matches = patterns.filter((p) => {
-      const fr = (p.name_fr || '').toLowerCase();
-      const ar = (p.name_ar || '').toLowerCase();
-      const sku = (p.sku || '').toLowerCase();
-      return fr.includes(term) || ar.includes(term) || sku.includes(term);
-    });
-
-    return matches.length > 0 ? matches : patterns;
+    if (term) {
+      const matches = patterns.filter((p) => {
+        const fr = (p.name_fr || '').toLowerCase();
+        const ar = (p.name_ar || '').toLowerCase();
+        const sku = (p.sku || '').toLowerCase();
+        return fr.includes(term) || ar.includes(term) || sku.includes(term);
+      });
+      list = matches.length > 0 ? matches : patterns;
+    }
+    // Tri décroissant : le produit avec le stock le plus élevé apparaît en premier
+    return [...list].sort((a, b) => (b.current_stock || 0) - (a.current_stock || 0));
   }, [patterns, search]);
 
   // Infinite scroll observer on scrolling down
