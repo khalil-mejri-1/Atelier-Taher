@@ -20,7 +20,8 @@ export function createPatternsRouter() {
       const filter = {};
 
       if (search && search.trim()) {
-        const regex = new RegExp(search.trim(), 'i');
+        const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escaped, 'i');
         filter.$or = [
           { sku: regex },
           { name_fr: regex },
@@ -49,12 +50,21 @@ export function createPatternsRouter() {
         query = query.skip(skipNum);
       }
 
+      // Si l'utilisateur effectue une recherche précise et sans limite explicite, retourner jusqu'à 30 résultats
+      const defaultLimit = (search && search.trim()) ? 30 : 50;
       const limitNum = parseInt(limit, 10);
       if (!isNaN(limitNum) && limitNum > 0) {
         query = query.limit(limitNum);
+      } else if (limit !== 'all') {
+        query = query.limit(defaultLimit);
       }
 
-      const patterns = await query.exec();
+      const rawPatterns = await query.lean().exec();
+      const patterns = rawPatterns.map((p) => ({
+        ...p,
+        id: p._id ? p._id.toString() : p.id,
+      }));
+
       const currentSkip = !isNaN(skipNum) ? skipNum : 0;
       const hasMore = currentSkip + patterns.length < total;
 

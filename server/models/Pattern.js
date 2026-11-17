@@ -91,9 +91,13 @@ const patternSchema = new mongoose.Schema(
   }
 );
 
-// Indexes for fast sorting and searching
+// Indexes for fast sorting, filtering and lightning-fast searching
+patternSchema.index({ sku: 1 });
+patternSchema.index({ name_fr: 1 });
+patternSchema.index({ name_ar: 1 });
 patternSchema.index({ category: 1 });
 patternSchema.index({ current_stock: 1 });
+patternSchema.index({ name_fr: 'text', name_ar: 'text', sku: 'text' });
 
 const Pattern = mongoose.model('Pattern', patternSchema);
 export default Pattern;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Search, 
   Plus, 
@@ -13,7 +13,8 @@ import {
   Coins,
   Puzzle,
   History,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import UndoToast from '../components/UndoToast';
@@ -28,7 +29,21 @@ export default function WorkerView() {
   const [patterns, setPatterns] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // Filters & Ultra-Fast Debounced Search
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    setIsSearching(true);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setIsSearching(false);
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const [loading, setLoading] = useState(true);
   const [todayCount, setTodayCount] = useState(0);
   const [todayEarnings, setTodayEarnings] = useState(0);
@@ -64,39 +79,78 @@ export default function WorkerView() {
   patternsRef.current = patterns;
   const sentinelRef = useRef(null);
 
-  const loadData = async (isBackground = false) => {
+  // Chargement ultra-rapide des patrons seuls
+  const fetchPatternsData = async (isBackground = false) => {
     try {
-      if (!isBackground) {
+      if (!isBackground && patternsRef.current.length === 0) {
         setLoading(true);
       }
-      const currentLimit = isBackground ? Math.max(5, patternsRef.current.length) : 5;
-      const [patRes, catRes, statsRes, dailyRes, progRes] = await Promise.all([
-        patternsApi.getAll({
-          category: selectedCategory === 'all' ? undefined : selectedCategory,
-          search: search.trim() || undefined,
-          limit: currentLimit,
-          skip: 0,
-        }),
+      setIsSearching(true);
+
+      const isSearchActive = Boolean(debouncedSearch.trim());
+      const currentLimit = isSearchActive
+        ? 30
+        : (isBackground ? Math.max(5, patternsRef.current.length) : 5);
+
+      const patRes = await patternsApi.getAll({
+        category: selectedCategory === 'all' ? undefined : selectedCategory,
+        search: debouncedSearch.trim() || undefined,
+        limit: currentLimit,
+        skip: 0,
+      });
+
+      setPatterns(patRes.patterns || []);
+      setHasMore(Boolean(patRes.hasMore));
+      setTotalPatterns(patRes.total ?? (patRes.patterns || []).length);
+    } catch (err) {
+      console.error('Erreur chargement patrons opérateur :', err);
+    } finally {
+      setLoading(false);
+      setIsSearching(false);
+    }
+  };
+
+  // Chargement des métadonnées (catégories, statistiques et progression)
+  const loadWorkerMeta = async () => {
+    try {
+      const [catRes, statsRes, dailyRes, progRes] = await Promise.all([
         patternsApi.getCategories(),
         logsApi.getStats(),
         logsApi.getDailyProduction().catch(() => ({ totalEarnings: 0 })),
         patternsApi.getMyProgress().catch(() => ({ progress: [] })),
       ]);
-      setPatterns(patRes.patterns || []);
-      setHasMore(Boolean(patRes.hasMore));
-      setTotalPatterns(patRes.total ?? (patRes.patterns || []).length);
       setCategories(catRes.categories || []);
       setTodayCount(statsRes.producedToday || 0);
       setTodayEarnings(dailyRes?.totalEarnings || 0);
       setMyProgress(progRes?.progress || []);
     } catch (err) {
-      console.error('Erreur chargement patrons opérateur :', err);
-    } finally {
-      if (!isBackground) {
-        setLoading(false);
-      }
+      console.error('Erreur chargement métadonnées ouvrier :', err);
     }
   };
+
+  const loadData = async (isBackground = false) => {
+    await Promise.all([
+      fetchPatternsData(isBackground),
+      loadWorkerMeta(),
+    ]);
+  };
+
+  useEffect(() => {
+    loadWorkerMeta();
+  }, []);
+
+  useEffect(() => {
+    fetchPatternsData(false);
+  }, [selectedCategory, debouncedSearch]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      fetchPatternsData(true);
+      loadWorkerMeta();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [selectedCategory, debouncedSearch]);
 
   // Load next 10 patterns on scroll down
   const loadMorePatterns = async () => {
@@ -106,7 +160,7 @@ export default function WorkerView() {
       const currentCount = patternsRef.current.length;
       const patRes = await patternsApi.getAll({
         category: selectedCategory === 'all' ? undefined : selectedCategory,
-        search: search.trim() || undefined,
+        search: debouncedSearch.trim() || undefined,
         limit: 10,
         skip: currentCount,
       });
@@ -128,18 +182,20 @@ export default function WorkerView() {
     }
   };
 
-  useEffect(() => {
-    loadData(false);
-  }, [selectedCategory, search]);
+  // Filtrage local instantané à 0ms pendant la frappe
+  const displayedPatterns = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return patterns;
 
-  // Synchronisation silencieuse en arrière-plan sans rechargement visuel de la page
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.hidden) return;
-      loadData(true);
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [selectedCategory, search]);
+    const matches = patterns.filter((p) => {
+      const fr = (p.name_fr || '').toLowerCase();
+      const ar = (p.name_ar || '').toLowerCase();
+      const sku = (p.sku || '').toLowerCase();
+      return fr.includes(term) || ar.includes(term) || sku.includes(term);
+    });
+
+    return matches.length > 0 ? matches : patterns;
+  }, [patterns, search]);
 
   // Infinite scroll observer on scrolling down
   useEffect(() => {
@@ -162,7 +218,7 @@ export default function WorkerView() {
     return () => {
       if (target) observer.unobserve(target);
     };
-  }, [hasMore, loadingMore, loading, patterns.length, selectedCategory, search]);
+  }, [hasMore, loadingMore, loading, patterns.length, selectedCategory, debouncedSearch]);
 
   // Helper to get worker's printed parts for a pattern
   const getPatternInProgressParts = (patternId) => {
@@ -383,22 +439,25 @@ export default function WorkerView() {
           <div className="mt-3 sm:mt-4 space-y-2.5 sm:space-y-3">
             {/* Search Input */}
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher par nom ou code SKU (PAT-...)..."
-                className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-white text-xs sm:text-sm border border-[#E2E8F0] rounded-2xl focus:outline-hidden focus:border-slate-800 shadow-2xs placeholder:text-slate-400"
+                placeholder="Recherche instantanée (nom ou code SKU)... / بحث فوري..."
+                className="w-full pl-10 pr-10 py-2.5 sm:py-3 bg-white text-xs sm:text-sm border border-[#E2E8F0] rounded-2xl focus:outline-hidden focus:border-slate-800 shadow-2xs placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 transition-all"
               />
-              {search && (
+              {isSearching ? (
+                <Loader2 className="w-4 h-4 text-slate-400 animate-spin absolute right-3.5 top-1/2 -translate-y-1/2" />
+              ) : search ? (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-3 top-2.5 sm:top-3 text-xs text-slate-400 hover:text-slate-600 px-2 py-0.5 rounded-lg bg-slate-100"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                  title="Effacer / مسح"
                 >
-                  Effacer
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              )}
+              ) : null}
             </div>
 
             {/* Category Filter Pills & View Switcher (Clean Stacked on Mobile) */}
@@ -471,12 +530,12 @@ export default function WorkerView() {
 
       {/* Main Pattern Content: Table or Cards Grid */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-        {loading ? (
+        {loading && patterns.length === 0 ? (
           <div className="py-20 text-center text-slate-400 text-xs">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-slate-400" />
             <span>Chargement des patrons en cours...</span>
           </div>
-        ) : patterns.length === 0 ? (
+        ) : displayedPatterns.length === 0 ? (
           <div className="bg-white rounded-2xl p-10 text-center border border-[#E2E8F0] max-w-md mx-auto my-12">
             <Layers className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <h3 className="font-bold text-slate-700 text-sm mb-1">Aucun patron trouvé</h3>
@@ -486,7 +545,7 @@ export default function WorkerView() {
                 setSearch('');
                 setSelectedCategory('all');
               }}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
             >
               Réinitialiser les filtres
             </button>
@@ -509,7 +568,7 @@ export default function WorkerView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {patterns.map((pattern) => {
+                  {displayedPatterns.map((pattern) => {
                     const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
                     const isCritical = pattern.current_stock <= 3;
                     const isMultiPart = Boolean(pattern.has_parts && Array.isArray(pattern.parts) && pattern.parts.length > 1);
@@ -689,7 +748,7 @@ export default function WorkerView() {
         ) : (
           /* === WORKER CARDS GRID VIEW (COMPACT & SLEEK) === */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-            {patterns.map((pattern) => {
+            {displayedPatterns.map((pattern) => {
               const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
               const isCritical = pattern.current_stock <= 3;
               const isMultiPart = Boolean(pattern.has_parts && Array.isArray(pattern.parts) && pattern.parts.length > 1);

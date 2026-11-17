@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Search, 
   Plus, 
@@ -19,7 +19,8 @@ import {
   Coins,
   Puzzle,
   History,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import KpiCards from '../components/KpiCards';
@@ -45,8 +46,20 @@ export default function AdminDashboard() {
   // Image preview state
   const [previewImage, setPreviewImage] = useState(null);
 
-  // Filters
+  // Filters & Ultra-Fast Debounced Search
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    setIsSearching(true);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setIsSearching(false);
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [filterLowStockOnly, setFilterLowStockOnly] = useState(false);
 
@@ -92,38 +105,80 @@ export default function AdminDashboard() {
   patternsRef.current = patterns;
   const sentinelRef = useRef(null);
 
-  const loadData = async (isBackground = false) => {
+  // Chargement ultra-rapide des patrons seuls (optimisé pour la recherche)
+  const fetchPatternsData = async (isBackground = false) => {
     try {
-      if (!isBackground) {
+      if (!isBackground && patternsRef.current.length === 0) {
         setLoading(true);
       }
-      // On initial load: fetch first 5 patterns as requested. In background: sync currently loaded slice.
-      const currentLimit = isBackground ? Math.max(5, patternsRef.current.length) : 5;
-      const [patRes, catRes, statsRes] = await Promise.all([
-        patternsApi.getAll({
-          search: search.trim() || undefined,
-          category: selectedCategory === 'all' ? undefined : selectedCategory,
-          low_stock: filterLowStockOnly ? true : undefined,
-          limit: currentLimit,
-          skip: 0,
-        }),
-        patternsApi.getCategories(),
-        logsApi.getStats(),
-      ]);
+      setIsSearching(true);
+
+      const isSearchActive = Boolean(debouncedSearch.trim());
+      // En cas de recherche active, ramener jusqu'à 30 correspondances immédiatement
+      const currentLimit = isSearchActive
+        ? 30
+        : (isBackground ? Math.max(5, patternsRef.current.length) : 5);
+
+      const patRes = await patternsApi.getAll({
+        search: debouncedSearch.trim() || undefined,
+        category: selectedCategory === 'all' ? undefined : selectedCategory,
+        low_stock: filterLowStockOnly ? true : undefined,
+        limit: currentLimit,
+        skip: 0,
+      });
 
       setPatterns(patRes.patterns || []);
       setHasMore(Boolean(patRes.hasMore));
       setTotalPatterns(patRes.total ?? (patRes.patterns || []).length);
+    } catch (err) {
+      console.error('Erreur chargement patrons :', err);
+    } finally {
+      setLoading(false);
+      setIsSearching(false);
+    }
+  };
+
+  // Chargement des métadonnées (catégories & statistiques) sans ralentir la recherche
+  const loadMetaStats = async () => {
+    try {
+      const [catRes, statsRes] = await Promise.all([
+        patternsApi.getCategories(),
+        logsApi.getStats(),
+      ]);
       setCategories(catRes.categories || []);
       setStats(statsRes || {});
     } catch (err) {
-      console.error('Erreur chargement dashboard admin :', err);
-    } finally {
-      if (!isBackground) {
-        setLoading(false);
-      }
+      console.error('Erreur chargement métadonnées :', err);
     }
   };
+
+  // Rechargement complet (utilisé après ajout, modification ou suppression)
+  const loadData = async (isBackground = false) => {
+    await Promise.all([
+      fetchPatternsData(isBackground),
+      loadMetaStats(),
+    ]);
+  };
+
+  // Chargement initial des catégories et statistiques au montage
+  useEffect(() => {
+    loadMetaStats();
+  }, []);
+
+  // Déclenchement rapide dès que la recherche debouncée ou les filtres changent
+  useEffect(() => {
+    fetchPatternsData(false);
+  }, [debouncedSearch, selectedCategory, filterLowStockOnly]);
+
+  // Synchronisation silencieuse en arrière-plan toutes les 10s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      fetchPatternsData(true);
+      loadMetaStats();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [debouncedSearch, selectedCategory, filterLowStockOnly]);
 
   // Load next 10 patterns on scroll down
   const loadMorePatterns = async () => {
@@ -132,7 +187,7 @@ export default function AdminDashboard() {
     try {
       const currentCount = patternsRef.current.length;
       const patRes = await patternsApi.getAll({
-        search: search.trim() || undefined,
+        search: debouncedSearch.trim() || undefined,
         category: selectedCategory === 'all' ? undefined : selectedCategory,
         low_stock: filterLowStockOnly ? true : undefined,
         limit: 10,
@@ -156,18 +211,20 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => {
-    loadData(false);
-  }, [search, selectedCategory, filterLowStockOnly]);
+  // Filtrage local instantané à 0ms pendant la frappe
+  const displayedPatterns = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return patterns;
 
-  // Synchronisation silencieuse en arrière-plan sans rechargement visuel de la page
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.hidden) return;
-      loadData(true);
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [search, selectedCategory, filterLowStockOnly]);
+    const matches = patterns.filter((p) => {
+      const fr = (p.name_fr || '').toLowerCase();
+      const ar = (p.name_ar || '').toLowerCase();
+      const sku = (p.sku || '').toLowerCase();
+      return fr.includes(term) || ar.includes(term) || sku.includes(term);
+    });
+
+    return matches.length > 0 ? matches : patterns;
+  }, [patterns, search]);
 
   // Infinite scroll on scrolling down
   useEffect(() => {
@@ -190,7 +247,7 @@ export default function AdminDashboard() {
     return () => {
       if (target) observer.unobserve(target);
     };
-  }, [hasMore, loadingMore, loading, patterns.length, search, selectedCategory, filterLowStockOnly]);
+  }, [hasMore, loadingMore, loading, patterns.length, debouncedSearch, selectedCategory, filterLowStockOnly]);
 
   // Selection toggle
   const toggleSelectPattern = (id) => {
@@ -200,10 +257,10 @@ export default function AdminDashboard() {
   };
 
   const selectAll = () => {
-    if (selectedIds.length === patterns.length) {
+    if (selectedIds.length === displayedPatterns.length && displayedPatterns.length > 0) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(patterns.map((p) => p.id));
+      setSelectedIds(displayedPatterns.map((p) => p.id));
     }
   };
 
@@ -457,14 +514,25 @@ export default function AdminDashboard() {
               
               {/* Quick Order Search Bar */}
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Rechercher (nom du modèle, code)..."
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-[#E2E8F0] rounded-xl focus:outline-hidden focus:border-slate-800 bg-[#F8F9FA]"
+                  placeholder="Recherche instantanée (nom du modèle, code)... / بحث فوري..."
+                  className="w-full pl-9 pr-9 py-2 text-xs border border-[#E2E8F0] rounded-xl focus:outline-hidden focus:border-slate-800 bg-[#F8F9FA] focus:bg-white transition-all shadow-2xs"
                 />
+                {isSearching ? (
+                  <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
+                ) : search ? (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                    title="Effacer la recherche / مسح"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                ) : null}
               </div>
 
               {/* Category dropdown & Low Stock toggle */}
@@ -530,7 +598,7 @@ export default function AdminDashboard() {
                     onClick={selectAll}
                     className="flex items-center gap-1.5 font-semibold text-slate-700 hover:text-black cursor-pointer"
                   >
-                    {selectedIds.length === patterns.length && patterns.length > 0 ? (
+                    {selectedIds.length === displayedPatterns.length && displayedPatterns.length > 0 ? (
                       <CheckSquare className="w-4 h-4 text-slate-900" />
                     ) : (
                       <Square className="w-4 h-4 text-slate-400" />
@@ -538,7 +606,7 @@ export default function AdminDashboard() {
                     <span>Sélectionner tout</span>
                   </button>
                   <span className="text-[11px] font-medium text-slate-400 border-l border-slate-200 pl-3">
-                    {patterns.length} modèle(s)
+                    {displayedPatterns.length} modèle(s)
                   </span>
                 </div>
 
@@ -571,12 +639,12 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {loading ? (
+              {loading && patterns.length === 0 ? (
                 <div className="py-20 text-center text-slate-400 text-xs bg-white">
                   <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-slate-400" />
                   <span>Actualisation de l'inventaire...</span>
                 </div>
-              ) : patterns.length === 0 ? (
+              ) : displayedPatterns.length === 0 ? (
                 <div className="py-16 text-center text-slate-400 text-xs bg-white">
                   Aucun patron ne correspond aux critères
                 </div>
@@ -592,7 +660,7 @@ export default function AdminDashboard() {
                             className="text-slate-500 hover:text-black cursor-pointer inline-flex items-center justify-center"
                             title="Sélectionner tout"
                           >
-                            {selectedIds.length === patterns.length && patterns.length > 0 ? (
+                            {selectedIds.length === displayedPatterns.length && displayedPatterns.length > 0 ? (
                               <CheckSquare className="w-4 h-4 text-slate-900" />
                             ) : (
                               <Square className="w-4 h-4 text-slate-400" />
@@ -611,7 +679,7 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {patterns.map((pattern) => {
+                      {displayedPatterns.map((pattern) => {
                         const isSelected = selectedIds.includes(pattern.id);
                         const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
                         const isOutOfStock = pattern.current_stock <= 0;
@@ -826,7 +894,7 @@ export default function AdminDashboard() {
               ) : (
                 /* === GRID / CARDS VIEW === */
                 <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {patterns.map((pattern) => {
+                  {displayedPatterns.map((pattern) => {
                     const isSelected = selectedIds.includes(pattern.id);
                     const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
                     const isOutOfStock = pattern.current_stock <= 0;
