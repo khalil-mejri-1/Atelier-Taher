@@ -85,7 +85,9 @@ export default function MyPrintsHistoryModal({
       setTotalQuantity((prev) => Math.max(0, prev - qty));
       setTotalEarnings((prev) => Math.max(0, prev - amount));
 
-      setMessage(`تم حذف وإلغاء طباعة "${patternName}" بنجاح وتحديث الرصيد.`);
+      const successMsg = `تم حذف وإلغاء طباعة "${patternName}" بنجاح وتحديث الرصيد.`;
+      setMessage(successMsg);
+      notify.success(successMsg);
 
       if (onPrintsChanged) {
         onPrintsChanged();
@@ -94,7 +96,9 @@ export default function MyPrintsHistoryModal({
       setTimeout(() => setMessage(''), 4000);
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Échec de la suppression de l’impression');
+      const errMsg = err.message || 'Échec de la suppression de l’impression';
+      setError(errMsg);
+      notify.error(errMsg);
     } finally {
       setDeletingId(null);
     }

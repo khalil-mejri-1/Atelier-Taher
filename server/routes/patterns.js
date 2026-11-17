@@ -6,7 +6,7 @@ import ActivityLog from '../models/ActivityLog.js';
 import User from '../models/User.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 
-export function createPatternsRouter(io) {
+export function createPatternsRouter() {
   const router = express.Router();
 
   // Maintien pour compatibilité : pas d'émission socket dans l'environnement Vercel Serverless
@@ -144,17 +144,6 @@ export function createPatternsRouter(io) {
         totalPrice,
       });
 
-      if (io) {
-        io.emit('activity_logged', { log });
-        io.emit('worker_production_recorded', {
-          workerId: req.user._id,
-          workerName: req.user.name,
-          quantity: qty,
-          earned: totalPrice,
-          balance: updatedBalance,
-        });
-      }
-
       res.json({
         success: true,
         message: `Production de +${qty} enregistrée (+${totalPrice.toFixed(3)} DT)`,
@@ -285,17 +274,6 @@ export function createPatternsRouter(io) {
           totalPrice: unitPrice,
         });
 
-        if (io) {
-          io.emit('activity_logged', { log });
-          io.emit('worker_production_recorded', {
-            workerId: user._id,
-            workerName: user.name,
-            quantity: 1,
-            earned: unitPrice,
-            balance: user.balance,
-          });
-        }
-
         return res.json({
           success: true,
           completed: true,
@@ -339,7 +317,7 @@ export function createPatternsRouter(io) {
     }
   });
 
-  // POST /api/patterns/undo-produce - Toast d'annulation de sécurité (Undo 6s)
+  // POST /api/patterns/undo-produce - Toast d'annulation de sécurité (Undo 6s) ou suppression d'impression
   router.post('/undo-produce', authenticateToken, async (req, res) => {
     try {
       const { logId } = req.body;
@@ -348,41 +326,73 @@ export function createPatternsRouter(io) {
         return res.status(400).json({ message: 'Identifiant de l’opération manquant' });
       }
 
-      const log = await ActivityLog.findById(logId);
+      let log = null;
+      if (mongoose.Types.ObjectId.isValid(logId)) {
+        log = await ActivityLog.findById(logId);
+      }
+      if (!log) {
+        log = await ActivityLog.findOne({ _id: logId });
+      }
+
       if (!log) {
         return res.status(404).json({ message: 'Opération introuvable' });
       }
 
       if (log.undone === 1) {
-        return res.status(400).json({ message: 'Cette opération a déjà été annulée' });
-      }
-
-      if (log.action_type !== 'production_increment' && log.action_type !== 'production_custom') {
-        return res.status(400).json({ message: 'Seules les opérations de production peuvent être annulées' });
+        return res.json({
+          success: true,
+          message: 'Cette opération a déjà été annulée ou supprimée',
+        });
       }
 
       // Seul l'administrateur ou l'ouvrier propriétaire de l'opération peut l'annuler
-      if (req.user.role !== 'admin' && log.user_id && log.user_id.toString() !== req.user._id.toString()) {
+      if (
+        req.user.role !== 'admin' &&
+        log.user_id &&
+        req.user._id &&
+        log.user_id.toString() !== req.user._id.toString()
+      ) {
         return res.status(403).json({ message: 'Vous ne pouvez annuler que vos propres enregistrements' });
       }
 
-      const pattern = await Pattern.findById(log.pattern_id);
-      if (!pattern) {
-        return res.status(404).json({ message: 'Le patron associé n’existe plus' });
+      // Recherche souple du patron (par ID, par SKU ou par Nom)
+      let pattern = null;
+      if (log.pattern_id && mongoose.Types.ObjectId.isValid(log.pattern_id)) {
+        pattern = await Pattern.findById(log.pattern_id);
+      }
+      if (!pattern && log.pattern_sku) {
+        pattern = await Pattern.findOne({ sku: log.pattern_sku });
+      }
+      if (!pattern && log.pattern_name) {
+        pattern = await Pattern.findOne({
+          $or: [{ name_fr: log.pattern_name }, { name_ar: log.pattern_name }],
+        });
       }
 
-      const rollbackQty = log.quantity_changed;
-      const prevStock = pattern.current_stock;
-      const newStock = Math.max(0, prevStock - rollbackQty);
+      const rollbackQty = log.quantity_changed || 1;
+      let prevStock = 0;
+      let newStock = 0;
 
-      pattern.current_stock = newStock;
-      await pattern.save();
+      // Si le patron existe encore dans la base, on ajuste son stock
+      if (pattern) {
+        prevStock = pattern.current_stock || 0;
+        newStock = Math.max(0, prevStock - rollbackQty);
+        pattern.current_stock = newStock;
+        await pattern.save();
+      }
 
+      // Marquer le log comme annulé
       log.undone = 1;
       await log.save();
 
       // Déduire le montant annulé du solde de l'ouvrier si applicable
-      const rollbackAmount = log.total_price || (rollbackQty * (pattern.price || 0));
+      const unitPrice = typeof log.unit_price === 'number'
+        ? log.unit_price
+        : (pattern?.price || 0);
+      const rollbackAmount = typeof log.total_price === 'number'
+        ? log.total_price
+        : (rollbackQty * unitPrice);
+
       if (log.user_id && rollbackAmount > 0) {
         await User.findByIdAndUpdate(log.user_id, {
           $inc: { balance: -rollbackAmount },
@@ -394,13 +404,13 @@ export function createPatternsRouter(io) {
         user_id: req.user._id,
         user_name: req.user.name,
         user_role: req.user.role,
-        pattern_id: pattern._id,
-        pattern_name: pattern.name_fr || pattern.name_ar,
-        pattern_sku: pattern.sku,
+        pattern_id: pattern ? pattern._id : (log.pattern_id || null),
+        pattern_name: pattern ? (pattern.name_fr || pattern.name_ar) : (log.pattern_name || 'Patron'),
+        pattern_sku: pattern ? pattern.sku : (log.pattern_sku || ''),
         quantity_changed: -rollbackQty,
         previous_stock: prevStock,
         new_stock: newStock,
-        unit_price: log.unit_price || pattern.price || 0,
+        unit_price: unitPrice,
         total_price: -rollbackAmount,
         notes: `Annulation de la production précédente (-${rollbackQty})`,
         undone: 0,
@@ -414,14 +424,10 @@ export function createPatternsRouter(io) {
         logId: undoLog._id.toString(),
       });
 
-      if (io) {
-        io.emit('activity_logged', { log: undoLog });
-      }
-
       res.json({
         success: true,
         message: `Production de (${rollbackQty}) pièce(s) annulée avec succès`,
-        pattern,
+        pattern: pattern || null,
       });
     } catch (err) {
       console.error('Erreur lors de l’annulation :', err);
@@ -484,10 +490,6 @@ export function createPatternsRouter(io) {
         user: req.user.name,
         logId: log._id.toString(),
       });
-
-      if (io) {
-        io.emit('activity_logged', { log });
-      }
 
       res.json({
         success: true,
@@ -596,10 +598,6 @@ export function createPatternsRouter(io) {
       });
 
       emitGlobalUpdates();
-      if (io) {
-        io.emit('patterns_refresh', { reason: 'pattern_created' });
-        io.emit('activity_logged', { log });
-      }
 
       res.status(201).json({ success: true, pattern: created, message: 'Patron ajouté avec succès' });
     } catch (err) {
@@ -698,9 +696,6 @@ export function createPatternsRouter(io) {
       }
 
       emitGlobalUpdates();
-      if (io) {
-        io.emit('patterns_refresh', { reason: 'pattern_updated' });
-      }
 
       res.json({ success: true, pattern, message: 'Patron mis à jour avec succès' });
     } catch (err) {
@@ -736,9 +731,6 @@ export function createPatternsRouter(io) {
       await Pattern.findByIdAndDelete(id);
 
       emitGlobalUpdates();
-      if (io) {
-        io.emit('patterns_refresh', { reason: 'pattern_deleted' });
-      }
 
       res.json({ success: true, message: `Patron (${pattern.name_fr || pattern.name_ar}) supprimé avec succès` });
     } catch (err) {
@@ -779,7 +771,6 @@ export function createPatternsRouter(io) {
         await Pattern.deleteMany({ _id: { $in: pattern_ids } });
 
         emitGlobalUpdates();
-        if (io) io.emit('patterns_refresh', { reason: 'bulk_delete' });
 
         return res.json({
           success: true,
@@ -819,7 +810,6 @@ export function createPatternsRouter(io) {
         }
 
         emitGlobalUpdates();
-        if (io) io.emit('patterns_refresh', { reason: 'bulk_stock_adjust' });
 
         return res.json({
           success: true,
@@ -839,7 +829,6 @@ export function createPatternsRouter(io) {
         );
 
         emitGlobalUpdates();
-        if (io) io.emit('patterns_refresh', { reason: 'bulk_category_change' });
 
         return res.json({
           success: true,
