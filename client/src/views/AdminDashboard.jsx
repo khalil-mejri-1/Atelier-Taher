@@ -21,7 +21,7 @@ import {
   Puzzle
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
-import { socket } from '../socket';
+import { socket, isVercelServer } from '../socket';
 import KpiCards from '../components/KpiCards';
 import ActivityLogFeed from '../components/ActivityLogFeed';
 import WorkerAccountsView from '../components/WorkerAccountsView';
@@ -133,6 +133,16 @@ export default function AdminDashboard() {
       socket.off('patterns_refresh', onRefresh);
       socket.off('categories_updated', onRefresh);
     };
+  }, []);
+
+  // Synchronisation périodique automatique si hébergé sur Vercel (sans WebSocket)
+  useEffect(() => {
+    if (isVercelServer) {
+      const interval = setInterval(() => {
+        loadData();
+      }, 10000);
+      return () => clearInterval(interval);
+    }
   }, []);
 
   // Selection toggle

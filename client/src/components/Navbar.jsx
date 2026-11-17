@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { socket } from '../socket';
+import { socket, isVercelServer } from '../socket';
 import { 
   Scissors, 
   ShieldCheck, 
@@ -59,12 +59,18 @@ export default function Navbar() {
             
             {/* Real-time Status Badge */}
             <div 
-              title={isConnected ? 'Connecté en temps réel via WebSocket' : 'Reconnexion en cours...'}
+              title={
+                isVercelServer 
+                  ? 'Connecté à l’API Cloud Vercel (Mode REST/HTTP)' 
+                  : isConnected 
+                  ? 'Connecté en temps réel via WebSocket' 
+                  : 'Reconnexion en cours...'
+              }
               className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium bg-[#F0FDF4] text-[#15803D] border border-green-200"
             >
-              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-[#15803D] animate-pulse' : 'bg-amber-500'}`} />
+              <span className={`w-2 h-2 rounded-full ${isConnected || isVercelServer ? 'bg-[#15803D] animate-pulse' : 'bg-amber-500'}`} />
               <span className="hidden md:inline font-sku text-[11px] font-semibold tracking-wide">
-                {isConnected ? 'EN DIRECT' : 'CONNEXION'}
+                {isConnected || isVercelServer ? 'EN DIRECT' : 'CONNEXION'}
               </span>
             </div>
 

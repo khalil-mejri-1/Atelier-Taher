@@ -15,7 +15,7 @@ import {
   History
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
-import { socket } from '../socket';
+import { socket, isVercelServer } from '../socket';
 import UndoToast from '../components/UndoToast';
 import ProduceCustomModal from '../components/ProduceCustomModal';
 import ProducePartsModal from '../components/ProducePartsModal';
@@ -113,6 +113,16 @@ export default function WorkerView() {
       socket.off('patterns_refresh', onRefresh);
       socket.off('categories_updated', onRefresh);
     };
+  }, []);
+
+  // Synchronisation périodique si hébergé sur Vercel (où les WebSockets ne sont pas supportés)
+  useEffect(() => {
+    if (isVercelServer) {
+      const interval = setInterval(() => {
+        loadData();
+      }, 10000);
+      return () => clearInterval(interval);
+    }
   }, []);
 
   // Helper to get worker's printed parts for a pattern
