@@ -257,7 +257,7 @@ export default function AdminDashboard() {
                   : 'bg-white text-slate-600 border border-[#E2E8F0]'
               }`}
             >
-              📅 Suivi Journalier
+              📅 Suivi Journalier Ouvriers
             </button>
             <button
               onClick={() => setActiveTab('workers')}
@@ -979,14 +979,14 @@ export default function AdminDashboard() {
 
         <button
           onClick={() => setActiveTab('daily')}
-          className={`flex flex-col items-center justify-center min-h-[48px] px-3 py-1 rounded-xl transition-colors ${
+          className={`flex flex-col items-center justify-center min-h-[48px] px-2 py-1 rounded-xl transition-colors ${
             activeTab === 'daily'
               ? 'text-emerald-700 font-bold'
               : 'text-slate-400 font-medium hover:text-slate-600'
           }`}
         >
           <Calendar className={`w-5 h-5 mb-0.5 ${activeTab === 'daily' ? 'text-emerald-600' : 'text-slate-400'}`} />
-          <span className="text-[10px]">Production</span>
+          <span className="text-[9.5px] sm:text-[10px] text-center leading-tight">Suivi Journalier Ouvriers</span>
         </button>
 
         <button
