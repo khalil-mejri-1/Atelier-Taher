@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, 
   Plus, 
@@ -56,15 +56,26 @@ export default function WorkerView() {
   const [flashMessage, setFlashMessage] = useState('');
   const [producingId, setProducingId] = useState(null);
 
+  // Pagination & Infinite Scroll: 5 on initial load, +10 on each scroll down
+  const [hasMore, setHasMore] = useState(false);
+  const [totalPatterns, setTotalPatterns] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const patternsRef = useRef([]);
+  patternsRef.current = patterns;
+  const sentinelRef = useRef(null);
+
   const loadData = async (isBackground = false) => {
     try {
       if (!isBackground) {
         setLoading(true);
       }
+      const currentLimit = isBackground ? Math.max(5, patternsRef.current.length) : 5;
       const [patRes, catRes, statsRes, dailyRes, progRes] = await Promise.all([
         patternsApi.getAll({
           category: selectedCategory === 'all' ? undefined : selectedCategory,
           search: search.trim() || undefined,
+          limit: currentLimit,
+          skip: 0,
         }),
         patternsApi.getCategories(),
         logsApi.getStats(),
@@ -72,6 +83,8 @@ export default function WorkerView() {
         patternsApi.getMyProgress().catch(() => ({ progress: [] })),
       ]);
       setPatterns(patRes.patterns || []);
+      setHasMore(Boolean(patRes.hasMore));
+      setTotalPatterns(patRes.total ?? (patRes.patterns || []).length);
       setCategories(catRes.categories || []);
       setTodayCount(statsRes.producedToday || 0);
       setTodayEarnings(dailyRes?.totalEarnings || 0);
@@ -82,6 +95,36 @@ export default function WorkerView() {
       if (!isBackground) {
         setLoading(false);
       }
+    }
+  };
+
+  // Load next 10 patterns on scroll down
+  const loadMorePatterns = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const currentCount = patternsRef.current.length;
+      const patRes = await patternsApi.getAll({
+        category: selectedCategory === 'all' ? undefined : selectedCategory,
+        search: search.trim() || undefined,
+        limit: 10,
+        skip: currentCount,
+      });
+
+      const newItems = patRes.patterns || [];
+      if (newItems.length > 0) {
+        setPatterns((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          const fresh = newItems.filter((p) => !existingIds.has(p.id));
+          return [...prev, ...fresh];
+        });
+      }
+      setHasMore(Boolean(patRes.hasMore));
+      setTotalPatterns(patRes.total ?? (currentCount + newItems.length));
+    } catch (err) {
+      console.error('Erreur chargement plus de patrons :', err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -97,6 +140,29 @@ export default function WorkerView() {
     }, 10000);
     return () => clearInterval(interval);
   }, [selectedCategory, search]);
+
+  // Infinite scroll observer on scrolling down
+  useEffect(() => {
+    if (!hasMore || loadingMore || loading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0] && entries[0].isIntersecting) {
+          loadMorePatterns();
+        }
+      },
+      { rootMargin: '250px' }
+    );
+
+    const target = sentinelRef.current;
+    if (target) {
+      observer.observe(target);
+    }
+
+    return () => {
+      if (target) observer.unobserve(target);
+    };
+  }, [hasMore, loadingMore, loading, patterns.length, selectedCategory, search]);
 
   // Helper to get worker's printed parts for a pattern
   const getPatternInProgressParts = (patternId) => {
@@ -347,7 +413,7 @@ export default function WorkerView() {
                       : 'bg-white text-slate-600 border border-[#E2E8F0] hover:bg-slate-50'
                   }`}
                 >
-                  Tous ({patterns.length})
+                  Tous ({totalPatterns || patterns.length})
                 </button>
 
                 {categories.map((cat) => (
@@ -796,6 +862,33 @@ export default function WorkerView() {
             })}
           </div>
         )}
+
+        {/* Infinite Scroll Sentinel & Load More Indicator */}
+        <div ref={sentinelRef} className="py-6 flex flex-col items-center justify-center gap-2">
+          {loadingMore && (
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm animate-in fade-in">
+              <Loader2 className="w-4 h-4 animate-spin text-[#0F172A]" />
+              <span>Chargement de 10 patrons supplémentaires... / جاري جلب 10 منتجات أخرى...</span>
+            </div>
+          )}
+
+          {!loadingMore && hasMore && (
+            <button
+              type="button"
+              onClick={loadMorePatterns}
+              className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Charger 10 de plus ({patterns.length} sur {totalPatterns})</span>
+            </button>
+          )}
+
+          {!hasMore && patterns.length > 5 && (
+            <div className="text-[11px] font-semibold text-slate-400 bg-white px-3.5 py-1 rounded-full border border-slate-200/60 shadow-2xs">
+              ✓ Tous les patrons sont affichés ({patterns.length} / {totalPatterns}) • تم جلب كافة المنتجات
+            </div>
+          )}
+        </div>
       </main>
 
       {/* Produce Parts Modal (for multi-part patterns) */}

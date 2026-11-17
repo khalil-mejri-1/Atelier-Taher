@@ -12,10 +12,10 @@ export function createPatternsRouter() {
   // Maintien pour compatibilité : pas d'émission socket dans l'environnement Vercel Serverless
   async function emitGlobalUpdates() {}
 
-  // GET /api/patterns : liste des patrons avec filtres
+  // GET /api/patterns : liste des patrons avec filtres et pagination
   router.get('/', authenticateToken, async (req, res) => {
     try {
-      const { search, category, low_stock } = req.query;
+      const { search, category, low_stock, limit, skip } = req.query;
 
       const filter = {};
 
@@ -37,12 +37,32 @@ export function createPatternsRouter() {
         filter.$expr = { $lte: ['$current_stock', '$low_stock_threshold'] };
       }
 
-      const patterns = await Pattern.find(filter).sort({
+      const total = await Pattern.countDocuments(filter);
+
+      let query = Pattern.find(filter).sort({
         current_stock: 1,
         _id: -1,
       });
 
-      res.json({ patterns });
+      const skipNum = parseInt(skip, 10);
+      if (!isNaN(skipNum) && skipNum > 0) {
+        query = query.skip(skipNum);
+      }
+
+      const limitNum = parseInt(limit, 10);
+      if (!isNaN(limitNum) && limitNum > 0) {
+        query = query.limit(limitNum);
+      }
+
+      const patterns = await query.exec();
+      const currentSkip = !isNaN(skipNum) ? skipNum : 0;
+      const hasMore = currentSkip + patterns.length < total;
+
+      res.json({
+        patterns,
+        total,
+        hasMore,
+      });
     } catch (err) {
       console.error('Erreur récupération patrons :', err);
       res.status(500).json({ message: 'Erreur lors de la récupération des patrons' });

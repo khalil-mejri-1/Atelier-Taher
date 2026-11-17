@@ -56,6 +56,8 @@ export const patternsApi = {
     if (params.search) query.append('search', params.search);
     if (params.category) query.append('category', params.category);
     if (params.low_stock) query.append('low_stock', 'true');
+    if (params.limit !== undefined) query.append('limit', params.limit);
+    if (params.skip !== undefined) query.append('skip', params.skip);
     const queryString = query.toString() ? `?${query.toString()}` : '';
     return apiRequest(`/patterns${queryString}`);
   },
