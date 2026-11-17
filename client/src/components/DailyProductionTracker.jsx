@@ -106,6 +106,25 @@ export default function DailyProductionTracker({ onPreviewImage }) {
   const isToday = selectedDate === getTodayString();
   const dateLabels = getFormattedDateLabels(selectedDate);
 
+  // Label for the day navigation button
+  const getDayButtonLabel = (dateStr) => {
+    if (dateStr === getTodayString()) {
+      return "Aujourd'hui / اليوم";
+    }
+    try {
+      const parts = dateStr.split('-');
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const fr = d.toLocaleDateString('fr-FR', { weekday: 'long' });
+      const ar = d.toLocaleDateString('ar-TN', { weekday: 'long' });
+      const frCapitalized = fr.charAt(0).toUpperCase() + fr.slice(1);
+      return `${frCapitalized} / ${ar}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const dayButtonLabel = getDayButtonLabel(selectedDate);
+
   // Filter logs by search input
   const filteredLogs = (data.logs || []).filter((log) => {
     if (!searchTerm.trim()) return true;
@@ -172,11 +191,14 @@ export default function DailyProductionTracker({ onPreviewImage }) {
 
               <button
                 onClick={() => setSelectedDate(getTodayString())}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                  isToday ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-slate-600 hover:text-black hover:bg-white'
+                title={isToday ? "Date d'aujourd'hui" : "Cliquer pour revenir à aujourd'hui / الرجوع إلى اليوم"}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  isToday 
+                    ? 'bg-[#0F172A] text-white shadow-2xs' 
+                    : 'bg-white text-slate-900 border border-slate-200/80 shadow-2xs hover:bg-slate-50'
                 }`}
               >
-                Aujourd'hui / اليوم
+                {dayButtonLabel}
               </button>
 
               <button
@@ -187,6 +209,17 @@ export default function DailyProductionTracker({ onPreviewImage }) {
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Quick reset to Today pill when another day is active */}
+            {!isToday && (
+              <button
+                onClick={() => setSelectedDate(getTodayString())}
+                className="px-2.5 py-1.5 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 rounded-xl transition-all cursor-pointer shadow-2xs"
+                title="Revenir à aujourd'hui / الرجوع إلى اليوم"
+              >
+                Aujourd'hui / اليوم ↩
+              </button>
+            )}
 
             {/* Date Picker Input */}
             <div className="relative flex items-center">
