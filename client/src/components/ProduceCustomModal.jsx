@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Minus, X, Check, Scissors } from 'lucide-react';
+import { Plus, Minus, X, Check, Scissors, Loader2 } from 'lucide-react';
 
 export default function ProduceCustomModal({ isOpen, onClose, pattern, onProduce }) {
   const [quantity, setQuantity] = useState(5);
@@ -119,10 +119,19 @@ export default function ProduceCustomModal({ isOpen, onClose, pattern, onProduce
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 py-2.5 px-4 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-transform active:scale-95"
+              className="flex-1 py-2.5 px-4 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
             >
-              <Check className="w-4 h-4" />
-              <span>{isSubmitting ? 'Enregistrement...' : `Confirmer +${quantity}`}</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Enregistrement en cours...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Confirmer +{quantity}</span>
+                </>
+              )}
             </button>
             <button
               type="button"

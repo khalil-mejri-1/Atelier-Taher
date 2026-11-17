@@ -296,7 +296,7 @@ export default function MyPrintsHistoryModal({
                         type="button"
                         onClick={() => handleDeleteLog(log)}
                         disabled={isDeleting}
-                        className="py-2 px-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 border border-red-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer disabled:opacity-50"
+                        className="py-2 px-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 border border-red-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Supprimer cette impression et restaurer le stock"
                       >
                         {isDeleting ? (

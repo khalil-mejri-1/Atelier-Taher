@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Tag, Plus, Trash2, AlertCircle, Check, Folder, Layers } from 'lucide-react';
+import { X, Tag, Plus, Trash2, AlertCircle, Check, Folder, Layers, Loader2 } from 'lucide-react';
 import { categoriesApi } from '../api';
 import { useDialog } from '../context/DialogContext';
 
@@ -168,10 +168,19 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoriesChang
             <button
               type="submit"
               disabled={submitting || !newCategoryName.trim()}
-              className="px-4 py-2 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
+              className="px-4 py-2 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>{submitting ? 'Ajout...' : 'Ajouter'}</span>
+              {submitting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Ajout...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Ajouter</span>
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -231,9 +240,13 @@ export default function CategoryManageModal({ isOpen, onClose, onCategoriesChang
                             ? `Supprimer "${cat.name}" (${cat.patternCount} patrons seront déplacés vers "Autre")` 
                             : `Supprimer "${cat.name}"`
                         }
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {isDeleting ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
                       </button>
                     </div>
                   </div>

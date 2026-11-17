@@ -9,7 +9,8 @@ import {
   Users,
   Search,
   Filter,
-  Coins
+  Coins,
+  Loader2
 } from 'lucide-react';
 import { workersApi } from '../api';
 import WorkerManageModal from './WorkerManageModal';
@@ -24,6 +25,8 @@ export default function WorkerAccountsView() {
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all'); // 'all' | 'admin' | 'worker'
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [actionType, setActionType] = useState(''); // 'delete' | 'toggle'
 
   const loadWorkers = async () => {
     try {
@@ -54,18 +57,25 @@ export default function WorkerAccountsView() {
   };
 
   const handleToggleStatus = async (worker) => {
+    if (actionLoadingId) return;
     const nextStatus = worker.status === 'active' ? 'suspended' : 'active';
     const statusTextFr = nextStatus === 'active' ? 'activé' : 'suspendu';
+    setActionLoadingId(worker.id);
+    setActionType('toggle');
     try {
       await workersApi.update(worker.id, { status: nextStatus });
       notify.success(`Compte "${worker.name}" ${statusTextFr} avec succès`);
       await loadWorkers();
     } catch (err) {
       notify.error(err.message || 'Échec du changement de statut');
+    } finally {
+      setActionLoadingId(null);
+      setActionType('');
     }
   };
 
   const handleDelete = async (worker) => {
+    if (actionLoadingId) return;
     const confirmed = await confirm({
       title: "Supprimer ce compte",
       titleAr: "تأكيد حذف الحساب نهائياً",
@@ -78,6 +88,8 @@ export default function WorkerAccountsView() {
     if (!confirmed) {
       return;
     }
+    setActionLoadingId(worker.id);
+    setActionType('delete');
     try {
       await workersApi.delete(worker.id);
       notify.success(`Compte de ${worker.name} supprimé définitivement`);
@@ -86,6 +98,9 @@ export default function WorkerAccountsView() {
       setTimeout(() => setMessage(''), 4000);
     } catch (err) {
       notify.error(err.message || 'Échec de la suppression');
+    } finally {
+      setActionLoadingId(null);
+      setActionType('');
     }
   };
 
@@ -254,9 +269,9 @@ export default function WorkerAccountsView() {
                     {/* Status Pill */}
                     <button
                       onClick={() => !isMasterAdmin && handleToggleStatus(worker)}
-                      disabled={isMasterAdmin}
+                      disabled={isMasterAdmin || (actionLoadingId === worker.id && actionType === 'toggle')}
                       title={isMasterAdmin ? 'Impossible de désactiver le compte admin principal' : 'Cliquer pour changer le statut'}
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 transition-colors shrink-0 ${
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 transition-colors shrink-0 disabled:opacity-60 disabled:cursor-not-allowed ${
                         isMasterAdmin ? 'cursor-not-allowed' : 'cursor-pointer'
                       } ${
                         isActive 
@@ -264,7 +279,11 @@ export default function WorkerAccountsView() {
                           : 'bg-[#FEF2F2] text-[#B91C1C] border-red-200'
                       }`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-[#15803D]' : 'bg-[#B91C1C]'}`} />
+                      {actionLoadingId === worker.id && actionType === 'toggle' ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-[#15803D]' : 'bg-[#B91C1C]'}`} />
+                      )}
                       <span>{isActive ? 'Actif' : 'Suspendu'}</span>
                     </button>
                   </div>
@@ -310,10 +329,15 @@ export default function WorkerAccountsView() {
                   {!isMasterAdmin && (
                     <button
                       onClick={() => handleDelete(worker)}
-                      className="px-2.5 py-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      disabled={actionLoadingId === worker.id && actionType === 'delete'}
+                      className="px-2.5 py-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Supprimer définitivement le compte"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      {actionLoadingId === worker.id && actionType === 'delete' ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
                       <span>Supprimer</span>
                     </button>
                   )}

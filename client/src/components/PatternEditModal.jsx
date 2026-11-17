@@ -16,7 +16,8 @@ import {
   Scissors, 
   FileText,
   Puzzle,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { categoriesApi } from '../api';
 
@@ -911,10 +912,19 @@ export default function PatternEditModal({
               type="submit"
               form="pattern-form"
               disabled={isSubmitting}
-              className="flex-1 sm:flex-initial py-2.5 px-5 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-98 cursor-pointer"
+              className="flex-1 sm:flex-initial py-2.5 px-5 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-98 cursor-pointer"
             >
-              <Check className="w-4 h-4 text-emerald-400" />
-              <span>{isSubmitting ? 'Enregistrement...' : (isEdit ? 'Mettre à jour' : 'Enregistrer le patron')}</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>{isEdit ? 'Mise à jour en cours...' : 'Enregistrement en cours...'}</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span>{isEdit ? 'Mettre à jour' : 'Enregistrer le patron'}</span>
+                </>
+              )}
             </button>
           </div>
         </div>

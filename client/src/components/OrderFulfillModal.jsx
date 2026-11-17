@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PackageMinus, X, Check, AlertCircle } from 'lucide-react';
+import { PackageMinus, X, Check, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function OrderFulfillModal({ isOpen, onClose, pattern, onDeduct }) {
   const [quantity, setQuantity] = useState(1);
@@ -146,10 +146,19 @@ export default function OrderFulfillModal({ isOpen, onClose, pattern, onDeduct }
             <button
               type="submit"
               disabled={isSubmitting || isOutOfStock || isExceeding}
-              className="flex-1 py-2.5 px-4 bg-[#B91C1C] hover:bg-red-800 text-white disabled:bg-slate-300 disabled:cursor-not-allowed rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-transform active:scale-95 shadow-xs"
+              className="flex-1 py-2.5 px-4 bg-[#B91C1C] hover:bg-red-800 text-white disabled:bg-slate-300 disabled:cursor-not-allowed rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-transform active:scale-95 shadow-xs cursor-pointer"
             >
-              <Check className="w-4 h-4" />
-              <span>{isSubmitting ? 'Déduction en cours...' : `Confirmer déduction (${quantity} pcs)`}</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Déduction en cours...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Confirmer déduction ({quantity} pcs)</span>
+                </>
+              )}
             </button>
             <button
               type="button"

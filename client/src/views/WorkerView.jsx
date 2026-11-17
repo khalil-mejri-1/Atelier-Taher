@@ -12,7 +12,8 @@ import {
   LayoutGrid,
   Coins,
   Puzzle,
-  History
+  History,
+  Loader2
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import UndoToast from '../components/UndoToast';
@@ -53,6 +54,7 @@ export default function WorkerView() {
 
   // Success alert indicator
   const [flashMessage, setFlashMessage] = useState('');
+  const [producingId, setProducingId] = useState(null);
 
   const loadData = async (isBackground = false) => {
     try {
@@ -147,6 +149,8 @@ export default function WorkerView() {
 
   // One-Tap +1 Production
   const handleProduceOne = async (pattern) => {
+    if (producingId) return;
+    setProducingId(pattern.id);
     try {
       const unitPrice = pattern.price || 0;
       setPatterns((prev) =>
@@ -170,6 +174,8 @@ export default function WorkerView() {
     } catch (err) {
       console.error(err);
       loadData();
+    } finally {
+      setProducingId(null);
     }
   };
 
@@ -579,10 +585,20 @@ export default function WorkerView() {
                             <div className="inline-flex items-center gap-2 justify-center">
                               <button
                                 onClick={() => handleProduceOne(pattern)}
-                                className="px-3 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                                disabled={producingId === pattern.id}
+                                className="px-3 py-2 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-75 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
                               >
-                                <Plus className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
-                                <span>+1 Produit</span>
+                                {producingId === pattern.id ? (
+                                  <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                                    <span>Enregistrement...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+                                    <span>+1 Produit</span>
+                                  </>
+                                )}
                               </button>
                               <button
                                 onClick={() => {
@@ -736,10 +752,20 @@ export default function WorkerView() {
                           {/* One-Tap +1 Button */}
                           <button
                             onClick={() => handleProduceOne(pattern)}
-                            className="flex-1 h-8.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                            disabled={producingId === pattern.id}
+                            className="flex-1 h-8.5 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-75 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
                           >
-                            <Plus className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
-                            <span>+1 Produit</span>
+                            {producingId === pattern.id ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                                <span>Enregistrement...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+                                <span>+1 Produit</span>
+                              </>
+                            )}
                           </button>
 
                           {/* Quick +5 or Custom stepper */}

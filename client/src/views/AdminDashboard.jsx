@@ -18,7 +18,8 @@ import {
   LayoutGrid,
   Calendar,
   Coins,
-  Puzzle
+  Puzzle,
+  Loader2
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import KpiCards from '../components/KpiCards';
@@ -67,6 +68,8 @@ export default function AdminDashboard() {
 
   // Toast / feedback message
   const [feedback, setFeedback] = useState('');
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [actionType, setActionType] = useState(''); // 'deduct' | 'delete'
 
   const loadData = async (isBackground = false) => {
     try {
@@ -127,18 +130,25 @@ export default function AdminDashboard() {
 
   // Quick -1 deduction
   const handleQuickDeductOne = async (pattern) => {
+    if (actionLoadingId) return;
     const patternName = pattern.name_fr || pattern.name_ar;
     if (pattern.current_stock <= 0) {
       notify.warning(`Désolé, le patron "${patternName}" est en rupture de stock`);
       return;
     }
+    setActionLoadingId(pattern.id);
+    setActionType('deduct');
     try {
       await patternsApi.deductOrder(pattern.id, 1, 'Expédition rapide -1');
       notify.success(`1 pièce déduite pour "${patternName}"`);
       setFeedback(`1 pièce déduite pour "${patternName}"`);
+      await loadData();
       setTimeout(() => setFeedback(''), 3000);
     } catch (err) {
       notify.error(err.message || 'Échec de la déduction');
+    } finally {
+      setActionLoadingId(null);
+      setActionType('');
     }
   };
 
@@ -164,6 +174,7 @@ export default function AdminDashboard() {
 
   // Delete single pattern
   const handleDeletePattern = async (pattern) => {
+    if (actionLoadingId) return;
     const patternName = pattern.name_fr || pattern.name_ar;
     const confirmed = await confirm({
       title: "Supprimer ce patron",
@@ -178,6 +189,8 @@ export default function AdminDashboard() {
     if (!confirmed) {
       return;
     }
+    setActionLoadingId(pattern.id);
+    setActionType('delete');
     try {
       await patternsApi.delete(pattern.id);
       notify.success(`Patron "${patternName}" supprimé avec succès`);
@@ -187,6 +200,9 @@ export default function AdminDashboard() {
       setTimeout(() => setFeedback(''), 3500);
     } catch (err) {
       notify.error(err.message || 'Échec de la suppression');
+    } finally {
+      setActionLoadingId(null);
+      setActionType('');
     }
   };
 
@@ -680,11 +696,18 @@ export default function AdminDashboard() {
                               <div className="inline-flex items-center gap-1.5 justify-center">
                                 <button
                                   onClick={() => handleQuickDeductOne(pattern)}
-                                  disabled={isOutOfStock}
+                                  disabled={isOutOfStock || (actionLoadingId === pattern.id && actionType === 'deduct')}
                                   title="Déduire 1 pièce (-1)"
-                                  className="px-2.5 py-1.5 bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed text-xs font-bold rounded-lg border border-red-200 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  className="px-2.5 py-1.5 bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed text-xs font-bold rounded-lg border border-red-200 transition-all active:scale-95 cursor-pointer shadow-2xs inline-flex items-center gap-1"
                                 >
-                                  -1 Déduire
+                                  {actionLoadingId === pattern.id && actionType === 'deduct' ? (
+                                    <>
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#B91C1C]" />
+                                      <span>Déduction...</span>
+                                    </>
+                                  ) : (
+                                    <span>-1 Déduire</span>
+                                  )}
                                 </button>
                                 <button
                                   onClick={() => {
@@ -715,10 +738,15 @@ export default function AdminDashboard() {
                                 </button>
                                 <button
                                   onClick={() => handleDeletePattern(pattern)}
-                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                  disabled={actionLoadingId === pattern.id && actionType === 'delete'}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Supprimer le patron"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  {actionLoadingId === pattern.id && actionType === 'delete' ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  )}
                                 </button>
                               </div>
                             </td>
@@ -844,10 +872,17 @@ export default function AdminDashboard() {
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               onClick={() => handleQuickDeductOne(pattern)}
-                              disabled={isOutOfStock}
-                              className="py-1.5 bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed text-xs font-bold rounded-lg border border-red-200 flex items-center justify-center gap-1 transition-transform active:scale-95 cursor-pointer shadow-2xs"
+                              disabled={isOutOfStock || (actionLoadingId === pattern.id && actionType === 'deduct')}
+                              className="py-1.5 bg-[#FEF2F2] hover:bg-red-100 text-[#B91C1C] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed text-xs font-bold rounded-lg border border-red-200 flex items-center justify-center gap-1 transition-transform active:scale-95 cursor-pointer shadow-2xs"
                             >
-                              -1 Déduire
+                              {actionLoadingId === pattern.id && actionType === 'deduct' ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#B91C1C]" />
+                                  <span>Déduction...</span>
+                                </>
+                              ) : (
+                                <span>-1 Déduire</span>
+                              )}
                             </button>
                             <button
                               onClick={() => {
@@ -876,10 +911,15 @@ export default function AdminDashboard() {
                               </button>
                               <button
                                 onClick={() => handleDeletePattern(pattern)}
-                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                disabled={actionLoadingId === pattern.id && actionType === 'delete'}
+                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Supprimer"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                {actionLoadingId === pattern.id && actionType === 'delete' ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
                               </button>
                             </div>
                           </div>

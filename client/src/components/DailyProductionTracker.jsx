@@ -15,7 +15,8 @@ import {
   Filter,
   CheckCircle2,
   FileSpreadsheet,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { logsApi, patternsApi } from '../api';
 import { useDialog } from '../context/DialogContext';
@@ -45,6 +46,7 @@ export default function DailyProductionTracker({ onPreviewImage }) {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
 
   const loadDailyReport = async () => {
     setLoading(true);
@@ -116,6 +118,7 @@ export default function DailyProductionTracker({ onPreviewImage }) {
 
   // Delete/Cancel a production log
   const handleDeleteLog = async (log) => {
+    if (deletingId) return;
     const patternName = log.pattern_name || log.pattern_id?.name_fr || 'ce patron';
     const workerName = log.user_name || 'cet ouvrier';
     const qty = log.quantity_changed || 1;
@@ -133,6 +136,7 @@ export default function DailyProductionTracker({ onPreviewImage }) {
 
     if (!confirmed) return;
 
+    setDeletingId(log._id);
     try {
       await patternsApi.undoProduce(log._id);
       notify.success(`Impression de "${patternName}" supprimée avec succès`);
@@ -144,6 +148,8 @@ export default function DailyProductionTracker({ onPreviewImage }) {
         message: err.message || 'Erreur lors de la suppression de l’impression',
         type: "error"
       });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -534,10 +540,15 @@ export default function DailyProductionTracker({ onPreviewImage }) {
                         <button
                           type="button"
                           onClick={() => handleDeleteLog(log)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all active:scale-90 cursor-pointer"
+                          disabled={deletingId === log._id}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all active:scale-90 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Supprimer cette impression (حذف وإلغاء هذه العملية)"
                         >
-                          <Trash2 className="w-4 h-4 text-red-500 hover:text-red-700" />
+                          {deletingId === log._id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                          ) : (
+                            <Trash2 className="w-4 h-4 text-red-500 hover:text-red-700" />
+                          )}
                         </button>
                       </td>
                     </tr>

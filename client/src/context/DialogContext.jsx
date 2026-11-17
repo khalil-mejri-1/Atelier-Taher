@@ -94,19 +94,30 @@ export function DialogProvider({ children }) {
 
   // Confirmation handlers
   const handleConfirmAction = () => {
-    if (confirmState.resolve) confirmState.resolve(true);
-    setConfirmState((prev) => ({ ...prev, isOpen: false }));
+    if (confirmState.resolve) {
+      const res = confirmState.resolve;
+      setConfirmState((prev) => ({ ...prev, isOpen: false, resolve: null }));
+      res(true);
+    }
   };
 
   const handleCancelAction = () => {
-    if (confirmState.resolve) confirmState.resolve(false);
-    setConfirmState((prev) => ({ ...prev, isOpen: false }));
+    if (confirmState.resolve) {
+      const res = confirmState.resolve;
+      setConfirmState((prev) => ({ ...prev, isOpen: false, resolve: null }));
+      res(false);
+    }
   };
 
   // Notice handlers
   const handleNoticeClose = () => {
-    if (noticeState.resolve) noticeState.resolve();
-    setNoticeState((prev) => ({ ...prev, isOpen: false }));
+    if (noticeState.resolve) {
+      const res = noticeState.resolve;
+      setNoticeState((prev) => ({ ...prev, isOpen: false, resolve: null }));
+      res();
+    } else {
+      setNoticeState((prev) => ({ ...prev, isOpen: false }));
+    }
   };
 
   return (

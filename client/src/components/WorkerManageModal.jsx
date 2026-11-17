@@ -11,7 +11,8 @@ import {
   UserCheck,
   UserX,
   Lock,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 
 export default function WorkerManageModal({ 
@@ -296,19 +297,26 @@ export default function WorkerManageModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`flex-1 py-3 px-4 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer ${
+              className={`flex-1 py-3 px-4 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
                 formData.role === 'admin' ? 'bg-[#0F172A] hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-700'
               }`}
             >
-              <Check className="w-4 h-4 stroke-[2.5]" />
-              <span>
-                {isSubmitting 
-                  ? 'Enregistrement en cours...' 
-                  : isEdit 
-                    ? 'Mettre à jour le compte' 
-                    : `Créer le compte (${formData.role === 'admin' ? 'Administrateur' : 'Opérateur'})`
-                }
-              </span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Enregistrement en cours...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 stroke-[2.5]" />
+                  <span>
+                    {isEdit 
+                      ? 'Mettre à jour le compte' 
+                      : `Créer le compte (${formData.role === 'admin' ? 'Administrateur' : 'Opérateur'})`
+                    }
+                  </span>
+                </>
+              )}
             </button>
             <button
               type="button"

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Check, Trash2, ArrowUpDown, Tag, AlertTriangle } from 'lucide-react';
+import { X, Check, Trash2, ArrowUpDown, Tag, AlertTriangle, Loader2 } from 'lucide-react';
 
 const CATEGORIES = [
   'Chemises',
@@ -188,20 +188,27 @@ export default function BulkActionModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-transform active:scale-95 ${
+              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-transform active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
                 activeAction === 'delete'
                   ? 'bg-red-700 hover:bg-red-800 text-white'
                   : 'bg-[#0F172A] hover:bg-slate-800 text-white'
               }`}
             >
-              <Check className="w-4 h-4" />
-              <span>
-                {isSubmitting 
-                  ? 'Traitement en cours...' 
-                  : (activeAction === 'delete' 
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Traitement en cours...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>
+                    {activeAction === 'delete' 
                       ? `Confirmer la suppression (${selectedCount})` 
-                      : `Appliquer aux (${selectedCount}) patrons`)}
-              </span>
+                      : `Appliquer aux (${selectedCount}) patrons`}
+                  </span>
+                </>
+              )}
             </button>
             <button
               type="button"

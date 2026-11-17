@@ -273,7 +273,7 @@ export default function ProducePartsModal({
                 type="button"
                 onClick={handleCompleteAllTasks}
                 disabled={submitting}
-                className="w-full py-3 px-5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 shadow-md transition-transform active:scale-98 cursor-pointer"
+                className="w-full py-3 px-5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 shadow-md transition-transform active:scale-98 cursor-pointer"
               >
                 {submitting ? (
                   <>
