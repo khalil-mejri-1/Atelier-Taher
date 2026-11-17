@@ -350,13 +350,19 @@ export default function DailyProductionTracker({ onPreviewImage }) {
           </div>
 
           {/* Stat 4: Total Operations */}
-          <div className="bg-[#F8F9FA] p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 border border-slate-200">
+          <div 
+            onClick={() => document.getElementById('daily-operations-table')?.scrollIntoView({ behavior: 'smooth' })}
+            role="button"
+            tabIndex={0}
+            title="Cliquer pour défiler vers le tableau des opérations / اضغط للنزول لجدول العمليات"
+            className="bg-[#F8F9FA] hover:bg-slate-100 p-2.5 rounded-xl border border-slate-200/80 hover:border-slate-300 transition-all cursor-pointer flex items-center gap-3 group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-slate-200 text-slate-700 flex items-center justify-center shrink-0 border border-slate-200 transition-colors">
               <Clock className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-                Opérations / العمليات
+              <span className="text-[10px] font-semibold text-slate-400 group-hover:text-slate-600 uppercase tracking-wider block">
+                Opérations / العمليات ↗
               </span>
               <div className="flex items-baseline gap-1">
                 <span className="font-mono text-base font-extrabold text-slate-900">
@@ -370,7 +376,7 @@ export default function DailyProductionTracker({ onPreviewImage }) {
       </div>
 
       {/* 3. MAIN TABLE OF ADDED PRODUCTS */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+      <div id="daily-operations-table" className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
         
         {/* Table Title Bar */}
         <div className="p-3.5 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between">

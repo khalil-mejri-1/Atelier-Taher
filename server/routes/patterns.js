@@ -389,14 +389,21 @@ export function createPatternsRouter() {
         });
       }
 
-      const rollbackQty = log.quantity_changed || 1;
+      const rawQty = log.quantity_changed || 1;
+      const absQty = Math.abs(rawQty);
       let prevStock = 0;
       let newStock = 0;
 
       // Si le patron existe encore dans la base, on ajuste son stock
       if (pattern) {
         prevStock = pattern.current_stock || 0;
-        newStock = Math.max(0, prevStock - rollbackQty);
+        if (log.action_type === 'order_deduct') {
+          // Annulation d'une déduction de commande : remettre les pièces au stock
+          newStock = prevStock + absQty;
+        } else {
+          // Annulation d'une production : retirer les pièces produites du stock
+          newStock = Math.max(0, prevStock - absQty);
+        }
         pattern.current_stock = newStock;
         await pattern.save();
       }
@@ -405,34 +412,37 @@ export function createPatternsRouter() {
       log.undone = 1;
       await log.save();
 
-      // Déduire le montant annulé du solde de l'ouvrier si applicable
+      // Déduire le montant annulé du solde de l'ouvrier uniquement s'il s'agit d'une production
+      const isProduction = log.action_type === 'production_increment' || log.action_type === 'production_custom';
       const unitPrice = typeof log.unit_price === 'number'
         ? log.unit_price
         : (pattern?.price || 0);
       const rollbackAmount = typeof log.total_price === 'number'
-        ? log.total_price
-        : (rollbackQty * unitPrice);
+        ? Math.abs(log.total_price)
+        : (absQty * unitPrice);
 
-      if (log.user_id && rollbackAmount > 0) {
+      if (isProduction && log.user_id && rollbackAmount > 0) {
         await User.findByIdAndUpdate(log.user_id, {
           $inc: { balance: -rollbackAmount },
         });
       }
 
       const undoLog = await ActivityLog.create({
-        action_type: 'production_undo',
+        action_type: log.action_type === 'order_deduct' ? 'order_undo' : 'production_undo',
         user_id: req.user._id,
         user_name: req.user.name,
         user_role: req.user.role,
         pattern_id: pattern ? pattern._id : (log.pattern_id || null),
         pattern_name: pattern ? (pattern.name_fr || pattern.name_ar) : (log.pattern_name || 'Patron'),
         pattern_sku: pattern ? pattern.sku : (log.pattern_sku || ''),
-        quantity_changed: -rollbackQty,
+        quantity_changed: log.action_type === 'order_deduct' ? absQty : -absQty,
         previous_stock: prevStock,
         new_stock: newStock,
         unit_price: unitPrice,
-        total_price: -rollbackAmount,
-        notes: `Annulation de la production précédente (-${rollbackQty})`,
+        total_price: isProduction ? -rollbackAmount : 0,
+        notes: log.action_type === 'order_deduct'
+          ? `Annulation de la commande client (+${absQty} pièces restituées au stock)`
+          : `Annulation de la production précédente (-${absQty})`,
         undone: 0,
       });
 

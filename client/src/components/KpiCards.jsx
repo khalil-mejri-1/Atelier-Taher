@@ -1,7 +1,14 @@
 import React from 'react';
 import { Layers, TrendingUp, AlertTriangle, PackageCheck } from 'lucide-react';
 
-export default function KpiCards({ stats, onFilterLowStock, isFilteringLowStock }) {
+export default function KpiCards({ 
+  stats, 
+  onFilterLowStock, 
+  isFilteringLowStock,
+  onOpenAllOperations,
+  onOpenProductionOperations,
+  onOpenOrderOperations
+}) {
   const {
     totalStock = 0,
     producedToday = 0,
@@ -14,10 +21,16 @@ export default function KpiCards({ stats, onFilterLowStock, isFilteringLowStock 
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3 sm:mb-4">
       
       {/* 1. Total Patrons en Stock */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-[#E2E8F0] shadow-2xs relative overflow-hidden transition-all hover:border-slate-300">
+      <div 
+        onClick={onOpenAllOperations}
+        role="button"
+        tabIndex={0}
+        title="Cliquer pour afficher l'historique complet des opérations / اضغط لعرض وحذف العمليات"
+        className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-[#E2E8F0] shadow-2xs relative overflow-hidden transition-all hover:border-slate-400 hover:shadow-xs cursor-pointer group"
+      >
         <div className="flex items-center justify-between mb-1 sm:mb-1.5">
-          <span className="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">Total en stock</span>
-          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 shrink-0">
+          <span className="text-[10px] sm:text-xs font-semibold text-slate-500 truncate group-hover:text-slate-800">Total en stock</span>
+          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 shrink-0 group-hover:scale-105 transition-transform">
             <Layers className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </div>
         </div>
@@ -28,16 +41,22 @@ export default function KpiCards({ stats, onFilterLowStock, isFilteringLowStock 
           <span className="text-[10px] text-slate-400">pcs</span>
         </div>
         <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] text-slate-400">
-          <span className="truncate">{totalPatterns} modèles</span>
-          <span className="font-sku text-[8px] sm:text-[9px] text-slate-400 shrink-0">TOTAL</span>
+          <span className="truncate group-hover:text-slate-600">{totalPatterns} modèles</span>
+          <span className="font-sku text-[8px] sm:text-[9px] text-slate-400 shrink-0">TOTAL ↗</span>
         </div>
       </div>
 
       {/* 2. Produits Aujourd'hui */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-[#E2E8F0] shadow-2xs relative overflow-hidden transition-all hover:border-slate-300">
+      <div 
+        onClick={onOpenProductionOperations}
+        role="button"
+        tabIndex={0}
+        title="Cliquer pour afficher et supprimer les opérations de production d'aujourd'hui / اضغط لعرض وحذف عمليات الإنتاج"
+        className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-[#E2E8F0] shadow-2xs relative overflow-hidden transition-all hover:border-emerald-400 hover:shadow-xs cursor-pointer group"
+      >
         <div className="flex items-center justify-between mb-1 sm:mb-1.5">
-          <span className="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">Produits auj.</span>
-          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#F0FDF4] flex items-center justify-center text-[#15803D] border border-green-200 shrink-0">
+          <span className="text-[10px] sm:text-xs font-semibold text-slate-500 truncate group-hover:text-emerald-700">Produits auj.</span>
+          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#F0FDF4] flex items-center justify-center text-[#15803D] border border-green-200 shrink-0 group-hover:scale-105 transition-transform">
             <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </div>
         </div>
@@ -48,8 +67,8 @@ export default function KpiCards({ stats, onFilterLowStock, isFilteringLowStock 
           <span className="text-[10px] text-emerald-600 font-medium">coupés</span>
         </div>
         <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] text-slate-400">
-          <span className="text-emerald-700 font-medium truncate">Atelier direct</span>
-          <span className="font-sku text-[8px] sm:text-[9px] text-slate-400 shrink-0">PROD</span>
+          <span className="text-emerald-700 font-medium truncate group-hover:underline">Gérer / حذف ↗</span>
+          <span className="font-sku text-[8px] sm:text-[9px] text-emerald-600 shrink-0 font-bold">PROD</span>
         </div>
       </div>
 
@@ -95,10 +114,16 @@ export default function KpiCards({ stats, onFilterLowStock, isFilteringLowStock 
       </div>
 
       {/* 4. Commandes Expédiées Aujourd'hui */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-[#E2E8F0] shadow-2xs relative overflow-hidden transition-all hover:border-slate-300">
+      <div 
+        onClick={onOpenOrderOperations}
+        role="button"
+        tabIndex={0}
+        title="Cliquer pour afficher et supprimer les opérations d'expédition d'aujourd'hui / اضغط لعرض وحذف عمليات الطلبات"
+        className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-[#E2E8F0] shadow-2xs relative overflow-hidden transition-all hover:border-red-400 hover:shadow-xs cursor-pointer group"
+      >
         <div className="flex items-center justify-between mb-1 sm:mb-1.5">
-          <span className="text-[10px] sm:text-xs font-semibold text-slate-500 truncate">Expédiées auj.</span>
-          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#FEF2F2] flex items-center justify-center text-[#B91C1C] border border-red-200 shrink-0">
+          <span className="text-[10px] sm:text-xs font-semibold text-slate-500 truncate group-hover:text-red-700">Expédiées auj.</span>
+          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#FEF2F2] flex items-center justify-center text-[#B91C1C] border border-red-200 shrink-0 group-hover:scale-105 transition-transform">
             <PackageCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </div>
         </div>
@@ -109,8 +134,8 @@ export default function KpiCards({ stats, onFilterLowStock, isFilteringLowStock 
           <span className="text-[10px] text-red-600 font-medium">pièces</span>
         </div>
         <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[9px] sm:text-[10px] text-slate-400">
-          <span className="text-slate-600 truncate">Clients</span>
-          <span className="font-sku text-[8px] sm:text-[9px] text-slate-400 shrink-0">OUT</span>
+          <span className="text-red-700 font-medium truncate group-hover:underline">Gérer / حذف ↗</span>
+          <span className="font-sku text-[8px] sm:text-[9px] text-red-600 shrink-0 font-bold">OUT</span>
         </div>
       </div>
 

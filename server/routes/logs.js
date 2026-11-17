@@ -7,23 +7,51 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/logs : liste des journaux d'activité
+// GET /api/logs : liste des journaux d'activité avec filtres avancés (type, patron, date du jour)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { action_type, search, limit = 100 } = req.query;
+    const { 
+      action_type, 
+      search, 
+      limit = 100, 
+      pattern_id, 
+      today, 
+      include_undone 
+    } = req.query;
 
     const filter = {};
+
+    // Exclure les opérations déjà annulées par défaut sauf si demandé
+    if (include_undone !== 'true' && include_undone !== '1') {
+      filter.undone = { $ne: 1 };
+    }
 
     if (action_type && action_type !== 'all' && action_type !== 'Tous') {
       if (action_type === 'production') {
         filter.action_type = {
-          $in: ['production_increment', 'production_custom', 'production_undo'],
+          $in: ['production_increment', 'production_custom'],
         };
       } else if (action_type === 'order') {
         filter.action_type = 'order_deduct';
       } else {
         filter.action_type = action_type;
       }
+    }
+
+    // Filtrer par patron spécifique si fourni
+    if (pattern_id) {
+      if (mongoose.Types.ObjectId.isValid(pattern_id)) {
+        filter.pattern_id = new mongoose.Types.ObjectId(pattern_id);
+      } else {
+        filter.pattern_id = pattern_id;
+      }
+    }
+
+    // Filtrer uniquement les opérations du jour si demandé
+    if (today === 'true' || today === '1') {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      filter.created_at = { $gte: startOfDay };
     }
 
     if (search && search.trim()) {
@@ -37,6 +65,7 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     const logs = await ActivityLog.find(filter)
+      .populate('pattern_id', 'image_url price name_fr name_ar sku category')
       .sort({ created_at: -1, _id: -1 })
       .limit(parseInt(limit, 10) || 100);
 
@@ -44,6 +73,88 @@ router.get('/', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Erreur récupération logs :', err);
     res.status(500).json({ message: 'Erreur lors de la récupération du journal d’activité' });
+  }
+});
+
+// DELETE /api/logs/:id : Supprimer / annuler une opération
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const logId = req.params.id;
+    let log = null;
+    if (mongoose.Types.ObjectId.isValid(logId)) {
+      log = await ActivityLog.findById(logId);
+    }
+    if (!log) {
+      log = await ActivityLog.findOne({ _id: logId });
+    }
+    if (!log) {
+      return res.status(404).json({ message: 'Opération introuvable' });
+    }
+
+    // Seul l'administrateur ou le propriétaire de l'opération peut l'annuler
+    if (
+      req.user.role !== 'admin' &&
+      log.user_id &&
+      req.user._id &&
+      log.user_id.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({ message: 'Non autorisé' });
+    }
+
+    // Recherche souple du patron (ID, SKU ou Nom)
+    let pattern = null;
+    if (log.pattern_id && mongoose.Types.ObjectId.isValid(log.pattern_id)) {
+      pattern = await Pattern.findById(log.pattern_id);
+    }
+    if (!pattern && log.pattern_sku) {
+      pattern = await Pattern.findOne({ sku: log.pattern_sku });
+    }
+    if (!pattern && log.pattern_name) {
+      pattern = await Pattern.findOne({
+        $or: [{ name_fr: log.pattern_name }, { name_ar: log.pattern_name }],
+      });
+    }
+
+    const rawQty = log.quantity_changed || 1;
+    const absQty = Math.abs(rawQty);
+
+    if (pattern) {
+      if (log.action_type === 'order_deduct') {
+        pattern.current_stock = (pattern.current_stock || 0) + absQty;
+      } else {
+        pattern.current_stock = Math.max(0, (pattern.current_stock || 0) - absQty);
+      }
+      await pattern.save();
+    }
+
+    log.undone = 1;
+    await log.save();
+
+    // Ajuster le solde de l'ouvrier si c'était une opération de production
+    const isProduction = log.action_type === 'production_increment' || log.action_type === 'production_custom';
+    if (isProduction && log.user_id) {
+      const unitPrice = typeof log.unit_price === 'number'
+        ? log.unit_price
+        : (pattern?.price || 0);
+      const rollbackAmount = typeof log.total_price === 'number'
+        ? Math.abs(log.total_price)
+        : (absQty * unitPrice);
+
+      if (rollbackAmount > 0) {
+        await User.findByIdAndUpdate(log.user_id, {
+          $inc: { balance: -rollbackAmount },
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Opération supprimée et stock mis à jour avec succès',
+      pattern,
+    });
+  } catch (err) {
+    console.error('Erreur suppression log :', err);
+    res.status(500).json({ message: 'Erreur lors de la suppression de l’opération' });
   }
 });
 

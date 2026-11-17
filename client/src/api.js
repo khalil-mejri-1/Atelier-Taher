@@ -103,10 +103,16 @@ export const logsApi = {
     const query = new URLSearchParams();
     if (params.action_type) query.append('action_type', params.action_type);
     if (params.search) query.append('search', params.search);
+    if (params.pattern_id) query.append('pattern_id', params.pattern_id);
+    if (params.today) query.append('today', 'true');
+    if (params.include_undone) query.append('include_undone', 'true');
     if (params.limit) query.append('limit', params.limit);
     const queryString = query.toString() ? `?${query.toString()}` : '';
     return apiRequest(`/logs${queryString}`);
   },
+  deleteLog: (logId) => apiRequest(`/logs/${logId}`, {
+    method: 'DELETE',
+  }),
   getStats: () => apiRequest('/logs/stats'),
   getDailyProduction: (date, workerId) => {
     const query = new URLSearchParams();

@@ -18,10 +18,12 @@ import {
   Calendar,
   Coins,
   Puzzle,
+  History,
   Loader2
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import KpiCards from '../components/KpiCards';
+import OperationsHistoryModal from '../components/OperationsHistoryModal';
 import WorkerAccountsView from '../components/WorkerAccountsView';
 import DailyProductionTracker from '../components/DailyProductionTracker';
 import OrderFulfillModal from '../components/OrderFulfillModal';
@@ -63,6 +65,19 @@ export default function AdminDashboard() {
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+
+  // Operations History Modal (Affichage & suppression des opérations)
+  const [operationsModalOpen, setOperationsModalOpen] = useState(false);
+  const [operationsPattern, setOperationsPattern] = useState(null);
+  const [operationsFilter, setOperationsFilter] = useState('all');
+  const [operationsTodayOnly, setOperationsTodayOnly] = useState(false);
+
+  const handleOpenOperations = (filter = 'all', todayOnly = false, pattern = null) => {
+    setOperationsFilter(filter);
+    setOperationsTodayOnly(todayOnly);
+    setOperationsPattern(pattern);
+    setOperationsModalOpen(true);
+  };
 
   // Toast / feedback message
   const [feedback, setFeedback] = useState('');
@@ -288,6 +303,9 @@ export default function AdminDashboard() {
           stats={stats}
           onFilterLowStock={() => setFilterLowStockOnly(!filterLowStockOnly)}
           isFilteringLowStock={filterLowStockOnly}
+          onOpenAllOperations={() => handleOpenOperations('all', false, null)}
+          onOpenProductionOperations={() => handleOpenOperations('production', true, null)}
+          onOpenOrderOperations={() => handleOpenOperations('order', true, null)}
         />
 
         {/* Global Feedback Banner */}
@@ -765,9 +783,16 @@ export default function AdminDashboard() {
                               </div>
                             </td>
 
-                            {/* Actions (Modifier / Supprimer) */}
+                            {/* Actions (Modifier / Supprimer / Opérations) */}
                             <td className="py-3 px-4 text-right align-middle whitespace-nowrap">
                               <div className="inline-flex items-center gap-1">
+                                <button
+                                  onClick={() => handleOpenOperations('all', false, pattern)}
+                                  className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                  title="Historique & suppression des opérations / سجل العمليات"
+                                >
+                                  <History className="w-3.5 h-3.5" />
+                                </button>
                                 <button
                                   onClick={() => {
                                     setEditPattern(pattern);
@@ -833,7 +858,11 @@ export default function AdminDashboard() {
                             </div>
 
                             {/* Stock Badge */}
-                            <div className={`px-2 py-0.5 rounded-full text-[11px] font-bold border inline-flex items-center gap-1 ${
+                            <button
+                              type="button"
+                              onClick={() => handleOpenOperations('all', false, pattern)}
+                              title="Cliquer pour afficher et supprimer les opérations de ce patron / اضغط لعرض وحذف العمليات"
+                              className={`px-2 py-0.5 rounded-full text-[11px] font-bold border inline-flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform ${
                               isOutOfStock
                                 ? 'bg-[#FEF2F2] text-[#B91C1C] border-red-200'
                                 : isLowStock
@@ -843,8 +872,8 @@ export default function AdminDashboard() {
                               <span className={`w-1.5 h-1.5 rounded-full ${
                                 isOutOfStock ? 'bg-[#B91C1C]' : isLowStock ? 'bg-[#B45309]' : 'bg-[#15803D]'
                               }`} />
-                              <span className="font-mono text-xs font-bold">{pattern.current_stock} pcs</span>
-                            </div>
+                              <span className="font-mono text-xs font-bold">{pattern.current_stock} pcs ↗</span>
+                            </button>
                           </div>
 
                           {/* Pattern Details with Image */}
@@ -941,6 +970,13 @@ export default function AdminDashboard() {
                           <div className="flex items-center justify-between text-xs pt-1">
                             <span className="text-[10px] text-slate-400">Seuil alerte: {pattern.low_stock_threshold}</span>
                             <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleOpenOperations('all', false, pattern)}
+                                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                title="Historique & suppression des opérations / سجل العمليات"
+                              >
+                                <History className="w-3.5 h-3.5" />
+                              </button>
                               <button
                                 onClick={() => {
                                   setEditPattern(pattern);
@@ -1045,6 +1081,17 @@ export default function AdminDashboard() {
         isOpen={categoryModalOpen}
         onClose={() => setCategoryModalOpen(false)}
         onCategoriesChanged={loadData}
+      />
+
+      {/* Operations History Modal (Sujet & suppression des opérations) */}
+      <OperationsHistoryModal
+        isOpen={operationsModalOpen}
+        onClose={() => setOperationsModalOpen(false)}
+        pattern={operationsPattern}
+        initialFilter={operationsFilter}
+        initialToday={operationsTodayOnly}
+        onOperationDeleted={() => loadData(false)}
+        onPreviewImage={setPreviewImage}
       />
 
       {/* Image Preview Lightbox */}
