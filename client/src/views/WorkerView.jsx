@@ -129,8 +129,29 @@ export default function WorkerView() {
           quantity: 1,
         });
       }
+      if (partsModalPattern?.id) {
+        setPatterns((prev) =>
+          prev.map((p) => (p.id === partsModalPattern.id ? { ...p, current_stock: p.current_stock + 1 } : p))
+        );
+        setMyProgress((prev) =>
+          prev.filter((p) => (p.pattern_id?._id || p.pattern_id || p.pattern_id?.id) !== partsModalPattern.id)
+        );
+      }
     } else {
       setFlashMessage(res.message || 'Partie enregistrée !');
+      if (partsModalPattern?.id && res.printed_parts) {
+        setMyProgress((prev) => {
+          const targetPid = partsModalPattern.id;
+          const idx = prev.findIndex((p) => (p.pattern_id?._id || p.pattern_id || p.pattern_id?.id) === targetPid);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = { ...next[idx], printed_parts: res.printed_parts };
+            return next;
+          } else {
+            return [...prev, { pattern_id: targetPid, printed_parts: res.printed_parts }];
+          }
+        });
+      }
     }
     setTimeout(() => setFlashMessage(''), 3000);
     loadData();

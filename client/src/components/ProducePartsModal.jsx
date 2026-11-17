@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Check, 
@@ -7,9 +7,10 @@ import {
   Printer, 
   Sparkles, 
   CheckCircle2, 
-  Circle, 
   AlertCircle,
-  Coins
+  Coins,
+  Loader2,
+  PartyPopper
 } from 'lucide-react';
 import { patternsApi } from '../api';
 
@@ -20,81 +21,148 @@ export default function ProducePartsModal({
   inProgressParts = [],
   onSuccess
 }) {
-  const [selectedPartId, setSelectedPartId] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [localPrinted, setLocalPrinted] = useState(inProgressParts || []);
+  const [submittingPartId, setSubmittingPartId] = useState(null);
+  const [submittingAll, setSubmittingAll] = useState(false);
   const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState(null); // { type: 'part' | 'completed', text: '' }
+  const [completed, setCompleted] = useState(false);
+
+  // Sync initial state whenever modal opens or pattern changes
+  useEffect(() => {
+    if (isOpen) {
+      setLocalPrinted(inProgressParts || []);
+      setSubmittingPartId(null);
+      setSubmittingAll(false);
+      setError('');
+      setFeedback(null);
+      setCompleted(false);
+    }
+  }, [isOpen, inProgressParts, pattern?.id]);
 
   if (!isOpen || !pattern) return null;
 
   const parts = Array.isArray(pattern.parts) && pattern.parts.length > 0
     ? pattern.parts
     : [
-        { id: 'part_1', name: 'Partie 1 (Haut)', name_ar: 'القسم الأول (الصدر/علوي)' },
-        { id: 'part_2', name: 'Partie 2 (Bas)', name_ar: 'القسم الثاني (الظهر/سفلي)' }
+        { id: 'part_1', name: 'Partie 1 (Haut / Veste)', name_ar: 'القسم الأول (الجزء العلوي / الصدر)' },
+        { id: 'part_2', name: 'Partie 2 (Bas / Pantalon)', name_ar: 'القسم الثاني (الجزء السفلي / الظهر)' }
       ];
 
   const totalParts = parts.length;
-  const printedCount = inProgressParts.length;
+  const printedCount = localPrinted.length;
   const unitPrice = typeof pattern.price === 'number' ? pattern.price : 0;
+  const isBusy = Boolean(submittingPartId || submittingAll);
 
   // Find next unprinted part
-  const nextUnprintedPart = parts.find((p) => !inProgressParts.includes(p.id));
+  const nextUnprintedPart = parts.find((p) => !localPrinted.includes(p.id));
 
   // Handle single part submission
   const handlePrintSinglePart = async (partId) => {
-    const targetId = partId || selectedPartId || nextUnprintedPart?.id;
-    if (!targetId) return;
+    const targetId = partId || nextUnprintedPart?.id;
+    if (!targetId || isBusy || completed) return;
 
-    setSubmitting(true);
+    setSubmittingPartId(targetId);
     setError('');
+    setFeedback(null);
+
     try {
       const res = await patternsApi.producePart(pattern.id, targetId, false);
+      
+      const updatedList = res.printed_parts || Array.from(new Set([...localPrinted, targetId]));
+      setLocalPrinted(updatedList);
+
       if (onSuccess) {
         onSuccess(res);
       }
-      onClose();
+
+      if (res.completed) {
+        // All parts completed!
+        setCompleted(true);
+        setFeedback({
+          type: 'completed',
+          text: `🎉 مبروك! تم إنجاز وطباعة كافة أقسام الباترون بنجاح (+1 في المخزون وتمت إضافة +${unitPrice.toFixed(3)} DT إلى رصيدك)!`
+        });
+
+        // Automatically close after showing celebration
+        setTimeout(() => {
+          onClose();
+        }, 2400);
+      } else {
+        // Intermediate part printed successfully: KEEP MODAL OPEN!
+        const targetObj = parts.find((p) => p.id === targetId);
+        const partName = targetObj ? (targetObj.name_ar || targetObj.name) : targetId;
+        setFeedback({
+          type: 'part',
+          text: `✅ تم تسجيل طباعة "${partName}" بنجاح! (${updatedList.length}/${totalParts}) يرجى طباعة القسم التالي لاكتمال الباترون واحتساب رصيدك.`
+        });
+      }
     } catch (err) {
-      setError(err.message || 'Erreur lors de l’enregistrement de la partie');
+      console.error(err);
+      setError(err.message || 'Erreur lors de l’enregistrement de la partie / حدث خطأ أثناء التسجيل');
     } finally {
-      setSubmitting(false);
+      setSubmittingPartId(null);
     }
   };
 
   // Handle complete all parts at once (+1 complete pattern)
   const handlePrintAllParts = async () => {
-    setSubmitting(true);
+    if (isBusy || completed) return;
+
+    setSubmittingAll(true);
     setError('');
+    setFeedback(null);
+
     try {
       const res = await patternsApi.producePart(pattern.id, null, true, 'Impression de toutes les parties ensemble');
+      setLocalPrinted(parts.map((p) => p.id));
+      setCompleted(true);
+      setFeedback({
+        type: 'completed',
+        text: `🎉 ممتاز! تم تأكيد إنجاز وطباعة كافة الأقسام معاً (+1 في المخزون وتمت إضافة +${unitPrice.toFixed(3)} DT إلى رصيدك)!`
+      });
+
       if (onSuccess) {
         onSuccess(res);
       }
-      onClose();
+
+      setTimeout(() => {
+        onClose();
+      }, 2200);
     } catch (err) {
-      setError(err.message || 'Erreur lors de la validation du patron complet');
+      console.error(err);
+      setError(err.message || 'Erreur lors de la validation du patron complet / خطأ أثناء التأكيد');
     } finally {
-      setSubmitting(false);
+      setSubmittingAll(false);
     }
   };
+
+  const progressPercentage = Math.min(100, Math.round((printedCount / totalParts) * 100));
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl relative animate-in zoom-in-95 duration-150 text-left overflow-hidden my-auto"
+        className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl relative animate-in zoom-in-95 duration-150 text-left overflow-hidden my-auto max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-white">
+        {/* Modal Header */}
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/60">
-              <Layers className="w-5 h-5 text-indigo-600" />
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${
+              completed 
+                ? 'bg-emerald-500 text-white border-emerald-600' 
+                : 'bg-indigo-50 text-indigo-700 border-indigo-200/60'
+            }`}>
+              {completed ? <Sparkles className="w-5 h-5 text-white" /> : <Layers className="w-5 h-5 text-indigo-600" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm sm:text-base text-slate-900">
                   Impression des parties du patron
                 </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  completed ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
+                }`}>
                   {totalParts} parties
                 </span>
               </div>
@@ -106,41 +174,61 @@ export default function ProducePartsModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4 sm:p-5 space-y-4">
+        {/* Content Area */}
+        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+          
+          {/* Error Message */}
           {error && (
-            <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200 flex items-center gap-2">
+            <div className="p-3 rounded-2xl bg-red-50 text-red-700 text-xs border border-red-200 flex items-center gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+              <span className="font-medium">{error}</span>
+            </div>
+          )}
+
+          {/* Feedback & Progress Messages */}
+          {feedback && (
+            <div className={`p-3.5 rounded-2xl border text-xs flex items-center gap-2.5 animate-in zoom-in-95 duration-200 ${
+              feedback.type === 'completed'
+                ? 'bg-emerald-600 text-white border-emerald-700 shadow-md font-bold'
+                : 'bg-emerald-50 text-emerald-900 border-emerald-200 font-semibold'
+            }`}>
+              {feedback.type === 'completed' ? (
+                <CheckCircle2 className="w-5 h-5 shrink-0 text-white" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              )}
+              <div className="leading-relaxed" dir="rtl">
+                {feedback.text}
+              </div>
             </div>
           )}
 
           {/* Pattern Brief Card */}
-          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
             {pattern.image_url ? (
               <img
                 src={pattern.image_url}
                 alt={pattern.name_fr}
-                className="w-14 h-14 rounded-lg object-cover border border-slate-200 shadow-2xs"
+                className="w-14 h-14 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.src = 'https://placehold.co/100x100/f8f9fa/1e293b?text=Patron';
                 }}
               />
             ) : (
-              <div className="w-14 h-14 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400">
+              <div className="w-14 h-14 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400 shrink-0">
                 <Scissors className="w-6 h-6" />
               </div>
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] font-bold text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                <span className="font-sku text-[10px] font-bold text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
                   {pattern.sku}
                 </span>
                 <span className="text-[11px] font-semibold text-slate-600">
@@ -157,33 +245,45 @@ export default function ProducePartsModal({
               )}
             </div>
             <div className="text-right shrink-0">
-              <span className="text-[10px] text-slate-400 block">Tarif patron</span>
-              <span className="text-xs sm:text-sm font-mono font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
+              <span className="text-[10px] text-slate-400 block font-semibold">Tarif patron</span>
+              <span className="text-xs sm:text-sm font-sku font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 inline-block">
                 +{unitPrice.toFixed(3)} DT
               </span>
             </div>
           </div>
 
           {/* Progress Overview Bar */}
-          <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100">
+          <div className={`p-3.5 rounded-2xl border transition-all ${
+            completed 
+              ? 'bg-emerald-50 border-emerald-200' 
+              : 'bg-indigo-50/70 border-indigo-100'
+          }`}>
             <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="font-bold text-indigo-950 flex items-center gap-1.5">
-                <span>Progression :</span>
-                <span className="font-mono">{printedCount} / {totalParts} parties imprimées</span>
+              <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                <span>Progression / نسبة الإنجاز :</span>
+                <span className="font-sku text-indigo-700 font-extrabold">{printedCount} / {totalParts} parties</span>
               </span>
-              <span className="font-bold text-indigo-700 font-mono text-[11px]">
-                {Math.round((printedCount / totalParts) * 100)}%
+              <span className={`font-bold font-sku text-xs ${
+                completed ? 'text-emerald-700' : 'text-indigo-700'
+              }`}>
+                {progressPercentage}%
               </span>
             </div>
-            <div className="w-full h-2.5 bg-indigo-200/50 rounded-full overflow-hidden">
+            
+            <div className="w-full h-3 bg-slate-200/70 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-indigo-600 rounded-full transition-all duration-300"
-                style={{ width: `${(printedCount / totalParts) * 100}%` }}
+                className={`h-full rounded-full transition-all duration-400 ease-out ${
+                  completed ? 'bg-emerald-500' : 'bg-indigo-600'
+                }`}
+                style={{ width: `${progressPercentage}%` }}
               />
             </div>
-            <p className="text-[11px] text-indigo-900 mt-2" dir="rtl">
+
+            <p className="text-[11px] text-slate-600 mt-2 font-medium" dir="rtl">
               {printedCount === 0 
                 ? `ℹ️ يتكون هذا الموديل من ${totalParts} أقسام. يجب طباعة كافة الأقسام لاحتساب الباترون في رصيدك.`
+                : completed
+                ? `🎉 اكتمل الباترون بنجاح! تم احتساب +1 قطعة و +${unitPrice.toFixed(3)} DT في رصيدك اليومي.`
                 : printedCount === totalParts - 1
                 ? `🔥 تبقت لك طباعة قسم واحد فقط لتأكيد إنجاز الباترون كاملاً والحصول على +${unitPrice.toFixed(3)} DT !`
                 : `تمت طباعة ${printedCount} من أصل ${totalParts} أقسام.`}
@@ -193,79 +293,92 @@ export default function ProducePartsModal({
           {/* Parts Checklist */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2">
-              Sélectionnez la partie que vous venez d'imprimer :
+              Sélectionnez la partie que vous venez d'imprimer / اضغط طباعة عند إنجاز القسم :
             </label>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {parts.map((part, index) => {
-                const isAlreadyPrinted = inProgressParts.includes(part.id);
-                const isSelected = selectedPartId === part.id || (!selectedPartId && nextUnprintedPart?.id === part.id && !isAlreadyPrinted);
+                const isAlreadyPrinted = localPrinted.includes(part.id);
+                const isPrintingThis = submittingPartId === part.id;
+                const isNext = !isAlreadyPrinted && nextUnprintedPart?.id === part.id;
 
                 return (
                   <div
                     key={part.id || index}
-                    onClick={() => {
-                      if (!isAlreadyPrinted) {
-                        setSelectedPartId(part.id);
-                      }
-                    }}
-                    className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                    className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
                       isAlreadyPrinted
-                        ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900 cursor-default'
-                        : isSelected
-                        ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-200 shadow-2xs'
-                        : 'bg-white hover:bg-slate-50 border-slate-200'
+                        ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 shadow-2xs'
+                        : isNext
+                        ? 'bg-white border-indigo-400 ring-2 ring-indigo-100 shadow-xs'
+                        : 'bg-white border-slate-200'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Status Icon */}
                       <div className="shrink-0">
                         {isAlreadyPrinted ? (
-                          <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          </div>
-                        ) : isSelected ? (
-                          <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-2xs">
-                            <span className="w-2 h-2 rounded-full bg-white" />
+                          <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                            <Check className="w-4 h-4 stroke-[3]" />
                           </div>
                         ) : (
-                          <div className="w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center text-slate-400 font-mono text-xs">
+                          <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center font-sku font-bold text-xs ${
+                            isNext ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-slate-300 text-slate-400 bg-slate-50'
+                          }`}>
                             {index + 1}
                           </div>
                         )}
                       </div>
 
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-bold text-slate-800">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-xs font-bold truncate ${
+                            isAlreadyPrinted ? 'text-emerald-950 line-through decoration-emerald-500/50' : 'text-slate-900'
+                          }`}>
                             {part.name || `Partie ${index + 1}`}
                           </span>
                           {isAlreadyPrinted && (
-                            <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
-                              Imprimée ✓
+                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <span>✓ Imprimée (تمت الطباعة)</span>
                             </span>
                           )}
                         </div>
                         {part.name_ar && (
-                          <p className="text-[11px] text-slate-500 font-medium" dir="rtl">
+                          <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5" dir="rtl">
                             {part.name_ar}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    {!isAlreadyPrinted && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePrintSinglePart(part.id);
-                        }}
-                        disabled={submitting}
-                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        <span>Imprimer</span>
-                      </button>
-                    )}
+                    {/* Action Button for this part */}
+                    <div className="shrink-0">
+                      {isAlreadyPrinted ? (
+                        <div className="px-3 py-1.5 bg-emerald-100/90 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Prêt</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isBusy || completed}
+                          onClick={() => handlePrintSinglePart(part.id)}
+                          className={`px-3.5 py-2 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer disabled:opacity-50 ${
+                            isNext ? 'bg-indigo-600 hover:bg-indigo-700 ring-2 ring-indigo-200' : 'bg-slate-800 hover:bg-slate-900'
+                          }`}
+                        >
+                          {isPrintingThis ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Enregistrement...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Printer className="w-3.5 h-3.5" />
+                              <span>Imprimer / طباعة</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -273,31 +386,42 @@ export default function ProducePartsModal({
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        {/* Modal Footer Actions */}
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto py-2 px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer order-2 sm:order-1"
+            className="w-full sm:w-auto py-2.5 px-5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer order-2 sm:order-1"
           >
-            Fermer
+            {completed ? 'Terminer & Fermer' : 'Fermer / إغلاق'}
           </button>
 
           <div className="flex items-center gap-2 w-full sm:w-auto order-1 sm:order-2">
             {/* Print All Parts Shortcut */}
-            <button
-              type="button"
-              onClick={handlePrintAllParts}
-              disabled={submitting}
-              className="flex-1 sm:flex-initial py-2.5 px-4 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-emerald-400" />
-              <span>Tout imprimer (+1 complet)</span>
-            </button>
+            {!completed && (
+              <button
+                type="button"
+                onClick={handlePrintAllParts}
+                disabled={isBusy}
+                className="w-full sm:w-auto py-2.5 px-4 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                title="Valider toutes les parties ensemble si vous les avez imprimées"
+              >
+                {submittingAll ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                    <span>Validation du patron complet...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    <span>Tout imprimer (+1 complet)</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
-
