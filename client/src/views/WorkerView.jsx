@@ -557,18 +557,10 @@ export default function WorkerView() {
                                   setPartsModalPattern(pattern);
                                   setPartsModalOpen(true);
                                 }}
-                                className={`px-3 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer ${
-                                  printedParts.length > 0
-                                    ? 'bg-amber-500 hover:bg-amber-600 text-white ring-2 ring-amber-200'
-                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                                }`}
+                                className="px-3 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white"
                               >
                                 <Puzzle className="w-3.5 h-3.5 text-white" />
-                                <span>
-                                  {printedParts.length > 0
-                                    ? `Compléter (${printedParts.length}/${pattern.parts.length})`
-                                    : `Imprimer parties (${pattern.parts.length})`}
-                                </span>
+                                <span>Imprimer parties ({pattern.parts.length})</span>
                               </button>
                             </div>
                           ) : (
@@ -724,18 +716,10 @@ export default function WorkerView() {
                             setPartsModalPattern(pattern);
                             setPartsModalOpen(true);
                           }}
-                          className={`flex-1 h-10 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer ${
-                            printedParts.length > 0
-                              ? 'bg-amber-500 hover:bg-amber-600 text-white ring-2 ring-amber-200'
-                              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                          }`}
+                          className="flex-1 h-10 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white"
                         >
                           <Puzzle className="w-4 h-4 text-white" />
-                          <span>
-                            {printedParts.length > 0
-                              ? `Compléter (${printedParts.length}/${pattern.parts.length} parties)`
-                              : `Imprimer parties (${pattern.parts.length})`}
-                          </span>
+                          <span>Imprimer parties ({pattern.parts.length})</span>
                         </button>
                       ) : (
                         <>
@@ -783,7 +767,6 @@ export default function WorkerView() {
         isOpen={partsModalOpen}
         onClose={() => setPartsModalOpen(false)}
         pattern={partsModalPattern}
-        inProgressParts={getPatternInProgressParts(partsModalPattern?.id)}
         onSuccess={handleProducePartsSuccess}
       />
 
