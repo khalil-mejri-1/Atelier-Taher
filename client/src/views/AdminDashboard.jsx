@@ -656,7 +656,8 @@ export default function AdminDashboard() {
                   <table className="w-full text-left text-xs border-separate border-spacing-0">
                     <thead>
                       <tr className="text-slate-600 font-semibold text-[11px] uppercase tracking-wider select-none">
-                        <th className="py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center sticky left-0 z-20 bg-slate-50 border-b border-slate-200">
+                        {/* Checkbox Header */}
+                        <th className="py-2.5 px-1.5 w-9 min-w-[36px] max-w-[36px] text-center sticky left-0 z-20 bg-slate-50 border-b border-slate-200">
                           <button
                             onClick={selectAll}
                             className="text-slate-500 hover:text-black cursor-pointer inline-flex items-center justify-center"
@@ -669,8 +670,13 @@ export default function AdminDashboard() {
                             )}
                           </button>
                         </th>
-                        <th className="py-3 px-3 w-16 min-w-[64px] max-w-[64px] text-center sticky left-[44px] z-20 bg-slate-50 border-b border-slate-200">Photo</th>
-                        <th className="py-3 px-3 w-32 min-w-[128px] sticky left-[108px] z-20 bg-slate-50 border-b border-slate-200 border-r border-slate-200 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)]">Référence (SKU)</th>
+                        {/* Photo & SKU Compact Sticky Header */}
+                        <th className="py-2 px-1 w-[76px] min-w-[76px] max-w-[76px] text-center sticky left-[36px] z-20 bg-slate-50 border-b border-slate-200 border-r border-slate-200 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)] text-[10px]">
+                          <div className="flex flex-col items-center justify-center leading-tight">
+                            <span>PHOTO</span>
+                            <span className="text-[9px] font-mono text-slate-400 font-normal">SKU</span>
+                          </div>
+                        </th>
                         <th className="py-3 px-4 min-w-[200px] bg-slate-50/80 border-b border-slate-200">Modèle / Désignation</th>
                         <th className="py-3 px-3 min-w-[120px] bg-slate-50/80 border-b border-slate-200">Catégorie</th>
                         <th className="py-3 px-3 min-w-[140px] bg-slate-50/80 border-b border-slate-200">Tailles & Matière</th>
@@ -694,7 +700,7 @@ export default function AdminDashboard() {
                             }`}
                           >
                             {/* Checkbox (Sticky Left 0) */}
-                            <td className={`py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center align-middle sticky left-0 z-10 border-b border-slate-100 transition-colors ${
+                            <td className={`py-2 px-1 w-9 min-w-[36px] max-w-[36px] text-center align-middle sticky left-0 z-10 border-b border-slate-100 transition-colors ${
                               isSelected ? 'bg-slate-100' : 'bg-white group-hover:bg-slate-50'
                             }`}>
                               <button
@@ -709,48 +715,52 @@ export default function AdminDashboard() {
                               </button>
                             </td>
 
-                            {/* Photo / Thumbnail (Sticky Left 44px) */}
-                            <td className={`py-3 px-3 w-16 min-w-[64px] max-w-[64px] text-center align-middle sticky left-[44px] z-10 border-b border-slate-100 transition-colors ${
+                            {/* Photo & SKU Combined (Sticky Left 36px with Shadow Divider) */}
+                            <td className={`py-2 px-1 w-[76px] min-w-[76px] max-w-[76px] text-center align-middle sticky left-[36px] z-10 border-b border-slate-100 border-r border-slate-200/90 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)] transition-colors ${
                               isSelected ? 'bg-slate-100' : 'bg-white group-hover:bg-slate-50'
                             }`}>
-                              {pattern.image_url ? (
-                                <img
-                                  src={pattern.image_url}
-                                  alt={pattern.name_fr}
-                                  onClick={() =>
-                                    setPreviewImage({
-                                      url: pattern.image_url,
-                                      title: pattern.name_fr || pattern.name_ar,
-                                      sku: pattern.sku,
-                                    })
-                                  }
-                                  className="w-11 h-11 rounded-lg object-cover border border-slate-200 shadow-2xs hover:scale-110 cursor-pointer transition-transform mx-auto"
-                                  title="Cliquer pour agrandir la photo du patron"
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = 'https://placehold.co/100x100/f8f9fa/1e293b?text=Patron';
-                                  }}
-                                />
-                              ) : (
-                                <div className="w-11 h-11 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 mx-auto">
-                                  <ImageIcon className="w-4 h-4 text-slate-400" />
-                                </div>
-                              )}
-                            </td>
-
-                            {/* SKU (Sticky Left 108px with Right Shadow) */}
-                            <td className={`py-3 px-3 w-32 min-w-[128px] align-middle sticky left-[108px] z-10 border-b border-slate-100 border-r border-slate-200/90 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)] transition-colors ${
-                              isSelected ? 'bg-slate-100' : 'bg-white group-hover:bg-slate-50'
-                            }`}>
-                              <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/90 whitespace-nowrap inline-block">
-                                {pattern.sku}
-                              </span>
+                              <div className="flex flex-col items-center justify-center gap-1 mx-auto">
+                                {pattern.image_url ? (
+                                  <img
+                                    src={pattern.image_url}
+                                    alt={pattern.name_fr}
+                                    onClick={() =>
+                                      setPreviewImage({
+                                        url: pattern.image_url,
+                                        title: pattern.name_fr || pattern.name_ar,
+                                        sku: pattern.sku,
+                                      })
+                                    }
+                                    className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-2xs hover:scale-110 cursor-pointer transition-transform"
+                                    title="Cliquer pour agrandir la photo du patron"
+                                    onError={(e) => {
+                                      e.target.onerror = null;
+                                      e.target.src = 'https://placehold.co/100x100/f8f9fa/1e293b?text=Patron';
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+                                    <ImageIcon className="w-4 h-4 text-slate-400" />
+                                  </div>
+                                )}
+                                <span 
+                                  className="font-mono text-[9px] font-bold text-slate-700 bg-slate-100/90 hover:bg-slate-200 px-1 py-0.5 rounded border border-slate-200/90 whitespace-nowrap block max-w-[70px] truncate text-center leading-tight tracking-tight shadow-3xs cursor-default"
+                                  title={pattern.sku}
+                                >
+                                  {pattern.sku}
+                                </span>
+                              </div>
                             </td>
 
                             {/* Nom & Description */}
                             <td className="py-3 px-4 align-middle border-b border-slate-100">
-                              <div className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
-                                {pattern.name_fr || pattern.name_ar}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
+                                  {pattern.name_fr || pattern.name_ar}
+                                </span>
+                                <span className="hidden sm:inline-block font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded border border-slate-200 font-semibold">
+                                  {pattern.sku}
+                                </span>
                               </div>
                               {pattern.name_ar && pattern.name_ar !== pattern.name_fr && (
                                 <div className="text-[11px] text-slate-500 font-medium mt-0.5" dir="rtl">
