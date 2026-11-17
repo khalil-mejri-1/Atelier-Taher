@@ -439,334 +439,188 @@ export default function WorkerView() {
             </button>
           </div>
         ) : viewMode === 'table' ? (
-          /* === WORKER TABLE VIEW (RESPONSIVE: MOBILE COMPACT CARDS + DESKTOP TABLE) === */
-          <div>
-            {/* 1. MOBILE LIST LAYOUT (md:hidden) - Zero horizontal scroll, prominent Print button */}
-            <div className="md:hidden space-y-3">
-              {patterns.map((pattern) => {
-                const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
-                const isCritical = pattern.current_stock <= 3;
-                const isMultiPart = Boolean(pattern.has_parts && Array.isArray(pattern.parts) && pattern.parts.length > 1);
-                const printedParts = getPatternInProgressParts(pattern.id);
-                const priceNum = parseFloat(pattern.price || 0);
+          /* === WORKER TABLE VIEW (TABLE LAYOUT PRESERVED ON ALL SCREEN SIZES) === */
+          <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold text-[11px] uppercase tracking-wider select-none">
+                    <th className="py-2.5 sm:py-3 px-2 sm:px-3 w-14 sm:w-16 text-center whitespace-nowrap">Photo</th>
+                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 w-28 whitespace-nowrap">Référence (SKU)</th>
+                    <th className="py-2.5 sm:py-3 px-3 sm:px-4 min-w-[160px] sm:min-w-[200px] whitespace-nowrap">Modèle / Désignation</th>
+                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 min-w-[110px] whitespace-nowrap">Catégorie</th>
+                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 min-w-[130px] whitespace-nowrap">Tailles & Matière</th>
+                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 text-center whitespace-nowrap min-w-[95px]">Tarif / Pièce</th>
+                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-4 text-center whitespace-nowrap min-w-[95px]">Stock Actuel</th>
+                    <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-center whitespace-nowrap min-w-[170px] sm:min-w-[200px]">Enregistrement Production</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {patterns.map((pattern) => {
+                    const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
+                    const isCritical = pattern.current_stock <= 3;
+                    const isMultiPart = Boolean(pattern.has_parts && Array.isArray(pattern.parts) && pattern.parts.length > 1);
+                    const printedParts = getPatternInProgressParts(pattern.id);
 
-                return (
-                  <div
-                    key={pattern.id}
-                    className="p-3.5 bg-white rounded-2xl border border-[#E2E8F0] shadow-2xs space-y-3"
-                  >
-                    {/* Header Row: Thumbnail + Info + Price & Stock */}
-                    <div className="flex items-start gap-3">
-                      {/* Photo Thumbnail */}
-                      {pattern.image_url ? (
-                        <div
-                          onClick={() =>
-                            setPreviewImage({
-                              url: pattern.image_url,
-                              title: pattern.name_fr || pattern.name_ar,
-                              sku: pattern.sku,
-                            })
-                          }
-                          className="w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer bg-white"
-                          title="Cliquer pour agrandir"
-                        >
-                          <img
-                            src={pattern.image_url}
-                            alt={pattern.name_fr}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = 'https://placehold.co/100x100/f8f9fa/1e293b?text=Patron';
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                          <Scissors className="w-5 h-5 text-slate-400" />
-                        </div>
-                      )}
+                    return (
+                      <tr
+                        key={pattern.id}
+                        className="hover:bg-slate-50/80 transition-colors"
+                      >
+                        {/* Thumbnail */}
+                        <td className="py-2.5 sm:py-3 px-2 sm:px-3 text-center align-middle">
+                          {pattern.image_url ? (
+                            <img
+                              src={pattern.image_url}
+                              alt={pattern.name_fr}
+                              onClick={() =>
+                                setPreviewImage({
+                                  url: pattern.image_url,
+                                  title: pattern.name_fr || pattern.name_ar,
+                                  sku: pattern.sku,
+                                })
+                              }
+                              className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg object-cover border border-slate-200 shadow-2xs hover:scale-105 cursor-pointer transition-transform mx-auto"
+                              title="Agrandir"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'https://placehold.co/100x100/f8f9fa/1e293b?text=Patron';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 mx-auto">
+                              <Scissors className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+                            </div>
+                          )}
+                        </td>
 
-                      {/* Pattern Meta */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        {/* SKU */}
+                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 align-middle">
+                          <span className="font-mono text-[11px] sm:text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 whitespace-nowrap inline-block">
                             {pattern.sku}
                           </span>
-                          <span className="text-[10px] font-medium text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200/80">
+                        </td>
+
+                        {/* Nom */}
+                        <td className="py-2.5 sm:py-3 px-3 sm:px-4 align-middle">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
+                            {pattern.name_fr || pattern.name_ar}
+                          </div>
+                          {pattern.name_ar && pattern.name_ar !== pattern.name_fr && (
+                            <div className="text-[11px] text-slate-500 font-medium mt-0.5" dir="rtl">
+                              {pattern.name_ar}
+                            </div>
+                          )}
+                          {isMultiPart && (
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                <Puzzle className="w-3 h-3 text-indigo-500" />
+                                <span>{pattern.parts.length} parties</span>
+                              </span>
+                              {printedParts.length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                  <span>En cours : {printedParts.length}/{pattern.parts.length}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {pattern.notes && (
+                            <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 italic">
+                              {pattern.notes}
+                            </p>
+                          )}
+                        </td>
+
+                        {/* Catégorie */}
+                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 align-middle">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80 whitespace-nowrap">
                             {pattern.category}
                           </span>
-                        </div>
+                        </td>
 
-                        <h3 className="font-bold text-slate-900 text-sm leading-snug mt-1 truncate">
-                          {pattern.name_fr || pattern.name_ar}
-                        </h3>
+                        {/* Tailles & Matière */}
+                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 align-middle text-[11px]">
+                          <div className="text-slate-700 font-medium truncate max-w-[130px]">
+                            <span className="text-slate-400 text-[10px]">Taille : </span>
+                            {pattern.size_range || 'Standard'}
+                          </div>
+                          <div className="text-slate-500 text-[10px] truncate max-w-[130px]">
+                            <span className="text-slate-400">Matière : </span>
+                            {pattern.material_type || '-'}
+                          </div>
+                        </td>
 
-                        {pattern.name_ar && pattern.name_ar !== pattern.name_fr && (
-                          <p className="text-[11px] text-slate-500 font-medium truncate" dir="rtl">
-                            {pattern.name_ar}
-                          </p>
-                        )}
-                      </div>
+                        {/* Tarif unitaire */}
+                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 text-center align-middle whitespace-nowrap">
+                          <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            {parseFloat(pattern.price || 0).toFixed(3)} DT
+                          </span>
+                        </td>
 
-                      {/* Price & Stock status */}
-                      <div className="text-right shrink-0">
-                        <span className="font-mono text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 inline-block">
-                          +{priceNum.toFixed(3)} DT
-                        </span>
-                        <div className="mt-1">
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        {/* Stock */}
+                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-4 text-center align-middle whitespace-nowrap">
+                          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
                             isCritical
                               ? 'bg-[#FEF2F2] text-[#B91C1C] border-red-200'
                               : isLowStock
                               ? 'bg-[#FFFBEB] text-[#B45309] border-amber-200'
                               : 'bg-[#F0FDF4] text-[#15803D] border-green-200'
                           }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
+                            <span className={`w-2 h-2 rounded-full ${
                               isCritical ? 'bg-[#B91C1C]' : isLowStock ? 'bg-[#B45309]' : 'bg-[#15803D]'
                             }`} />
-                            <span>{pattern.current_stock} pcs</span>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                            <span className="font-mono font-extrabold text-sm">{pattern.current_stock}</span>
+                            <span className="text-[10px] font-medium">pcs</span>
+                          </div>
+                          {isLowStock && (
+                            <div className="text-[10px] text-amber-600 font-medium mt-0.5">
+                              Seuil : {pattern.low_stock_threshold}
+                            </div>
+                          )}
+                        </td>
 
-                    {/* Multi-part banner if applicable */}
-                    {isMultiPart && (
-                      <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-indigo-50/80 border border-indigo-200/60 text-[11px] text-indigo-900">
-                        <div className="flex items-center gap-1.5">
-                          <Puzzle className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                          <span className="font-bold">يتكون من ({pattern.parts.length}) أقسام</span>
-                        </div>
-                        {printedParts.length > 0 && (
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                            En cours: {printedParts.length}/{pattern.parts.length}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Prominent Fast Action Buttons on Mobile */}
-                    <div className="pt-1">
-                      {isMultiPart ? (
-                        <button
-                          onClick={() => {
-                            setPartsModalPattern(pattern);
-                            setPartsModalOpen(true);
-                          }}
-                          className="w-full py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-transform active:scale-98 bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer"
-                        >
-                          <Puzzle className="w-4 h-4 text-white" />
-                          <span>Imprimer parties ({pattern.parts.length}) / طباعة الأقسام</span>
-                        </button>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleProduceOne(pattern)}
-                            className="flex-1 py-2.5 px-3 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-98 cursor-pointer"
-                          >
-                            <Plus className="w-4 h-4 text-emerald-400 stroke-[3]" />
-                            <span>+1 Produit (+{priceNum.toFixed(3)} DT)</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedPattern(pattern);
-                              setCustomModalOpen(true);
-                            }}
-                            className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-transform active:scale-98 border border-slate-200 cursor-pointer shrink-0"
-                          >
-                            <span>+5 / Autre</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* 2. DESKTOP TABLE LAYOUT (hidden md:block) */}
-            <div className="hidden md:block bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold text-[11px] uppercase tracking-wider select-none">
-                      <th className="py-3 px-3 w-16 text-center">Photo</th>
-                      <th className="py-3 px-3 w-28">Référence (SKU)</th>
-                      <th className="py-3 px-4 min-w-[200px]">Modèle / Désignation</th>
-                      <th className="py-3 px-3 min-w-[120px]">Catégorie</th>
-                      <th className="py-3 px-3 min-w-[140px]">Tailles & Matière</th>
-                      <th className="py-3 px-3 text-center min-w-[110px]">Tarif / Pièce</th>
-                      <th className="py-3 px-4 text-center min-w-[130px]">Stock Actuel</th>
-                      <th className="py-3 px-4 text-center min-w-[220px]">Enregistrement Production</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {patterns.map((pattern) => {
-                      const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
-                      const isCritical = pattern.current_stock <= 3;
-                      const isMultiPart = Boolean(pattern.has_parts && Array.isArray(pattern.parts) && pattern.parts.length > 1);
-                      const printedParts = getPatternInProgressParts(pattern.id);
-
-                      return (
-                        <tr
-                          key={pattern.id}
-                          className="hover:bg-slate-50/80 transition-colors"
-                        >
-                          {/* Thumbnail */}
-                          <td className="py-3 px-3 text-center align-middle">
-                            {pattern.image_url ? (
-                              <img
-                                src={pattern.image_url}
-                                alt={pattern.name_fr}
-                                onClick={() =>
-                                  setPreviewImage({
-                                    url: pattern.image_url,
-                                    title: pattern.name_fr || pattern.name_ar,
-                                    sku: pattern.sku,
-                                  })
-                                }
-                                className="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-2xs hover:scale-110 cursor-pointer transition-transform mx-auto"
-                                title="Agrandir"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = 'https://placehold.co/100x100/f8f9fa/1e293b?text=Patron';
+                        {/* Fast Produce Buttons */}
+                        <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-center align-middle whitespace-nowrap">
+                          {isMultiPart ? (
+                            <div className="inline-flex items-center gap-1.5 justify-center">
+                              <button
+                                onClick={() => {
+                                  setPartsModalPattern(pattern);
+                                  setPartsModalOpen(true);
                                 }}
-                              />
-                            ) : (
-                              <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 mx-auto">
-                                <Scissors className="w-5 h-5 text-slate-400" />
-                              </div>
-                            )}
-                          </td>
-
-                          {/* SKU */}
-                          <td className="py-3 px-3 align-middle">
-                            <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 whitespace-nowrap inline-block">
-                              {pattern.sku}
-                            </span>
-                          </td>
-
-                          {/* Nom */}
-                          <td className="py-3 px-4 align-middle">
-                            <div className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
-                              {pattern.name_fr || pattern.name_ar}
+                                className="px-3 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white"
+                              >
+                                <Puzzle className="w-3.5 h-3.5 text-white" />
+                                <span>Imprimer parties ({pattern.parts.length})</span>
+                              </button>
                             </div>
-                            {pattern.name_ar && pattern.name_ar !== pattern.name_fr && (
-                              <div className="text-[11px] text-slate-500 font-medium mt-0.5" dir="rtl">
-                                {pattern.name_ar}
-                              </div>
-                            )}
-                            {isMultiPart && (
-                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                  <Puzzle className="w-3 h-3 text-indigo-500" />
-                                  <span>{pattern.parts.length} parties</span>
-                                </span>
-                                {printedParts.length > 0 && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                    <span>En cours : {printedParts.length}/{pattern.parts.length}</span>
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            {pattern.notes && (
-                              <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 italic">
-                                {pattern.notes}
-                              </p>
-                            )}
-                          </td>
-
-                          {/* Catégorie */}
-                          <td className="py-3 px-3 align-middle">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80 whitespace-nowrap">
-                              {pattern.category}
-                            </span>
-                          </td>
-
-                          {/* Tailles & Matière */}
-                          <td className="py-3 px-3 align-middle text-[11px]">
-                            <div className="text-slate-700 font-medium truncate max-w-[140px]">
-                              <span className="text-slate-400 text-[10px]">Taille : </span>
-                              {pattern.size_range || 'Standard'}
+                          ) : (
+                            <div className="inline-flex items-center gap-2 justify-center">
+                              <button
+                                onClick={() => handleProduceOne(pattern)}
+                                className="px-3 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+                                <span>+1 Produit</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedPattern(pattern);
+                                  setCustomModalOpen(true);
+                                }}
+                                title="Quantité personnalisée"
+                                className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-transform active:scale-95 border border-slate-200 cursor-pointer"
+                              >
+                                <span>+5 / Autre</span>
+                              </button>
                             </div>
-                            <div className="text-slate-500 text-[10px] truncate max-w-[140px]">
-                              <span className="text-slate-400">Matière : </span>
-                              {pattern.material_type || '-'}
-                            </div>
-                          </td>
-
-                          {/* Tarif unitaire */}
-                          <td className="py-3 px-3 text-center align-middle whitespace-nowrap">
-                            <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                              {parseFloat(pattern.price || 0).toFixed(3)} DT
-                            </span>
-                          </td>
-
-                          {/* Stock */}
-                          <td className="py-3 px-4 text-center align-middle whitespace-nowrap">
-                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
-                              isCritical
-                                ? 'bg-[#FEF2F2] text-[#B91C1C] border-red-200'
-                                : isLowStock
-                                ? 'bg-[#FFFBEB] text-[#B45309] border-amber-200'
-                                : 'bg-[#F0FDF4] text-[#15803D] border-green-200'
-                            }`}>
-                              <span className={`w-2 h-2 rounded-full ${
-                                isCritical ? 'bg-[#B91C1C]' : isLowStock ? 'bg-[#B45309]' : 'bg-[#15803D]'
-                              }`} />
-                              <span className="font-mono font-extrabold text-sm">{pattern.current_stock}</span>
-                              <span className="text-[10px] font-medium">pcs</span>
-                            </div>
-                            {isLowStock && (
-                              <div className="text-[10px] text-amber-600 font-medium mt-0.5">
-                                Seuil : {pattern.low_stock_threshold}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Fast Produce Buttons */}
-                          <td className="py-3 px-4 text-center align-middle whitespace-nowrap">
-                            {isMultiPart ? (
-                              <div className="inline-flex items-center gap-1.5 justify-center">
-                                <button
-                                  onClick={() => {
-                                    setPartsModalPattern(pattern);
-                                    setPartsModalOpen(true);
-                                  }}
-                                  className="px-3 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white"
-                                >
-                                  <Puzzle className="w-3.5 h-3.5 text-white" />
-                                  <span>Imprimer parties ({pattern.parts.length})</span>
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="inline-flex items-center gap-2 justify-center">
-                                <button
-                                  onClick={() => handleProduceOne(pattern)}
-                                  className="px-3 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer"
-                                >
-                                  <Plus className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
-                                  <span>+1 Produit</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setSelectedPattern(pattern);
-                                    setCustomModalOpen(true);
-                                  }}
-                                  title="Quantité personnalisée"
-                                  className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-transform active:scale-95 border border-slate-200 cursor-pointer"
-                                >
-                                  <span>+5 / Autre</span>
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         ) : (
