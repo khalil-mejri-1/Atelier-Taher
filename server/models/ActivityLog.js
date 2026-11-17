@@ -10,6 +10,8 @@ const activityLogSchema = new mongoose.Schema(
         'production_custom',
         'production_undo',
         'order_deduct',
+        'order_undo',
+        'log_delete',
         'stock_bulk_adjust',
         'pattern_create',
         'pattern_update',

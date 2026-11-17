@@ -152,17 +152,24 @@ export default function OperationsHistoryModal({
 
     setDeletingId(log._id);
     try {
-      // Appel de l'API de suppression / annulation
-      await patternsApi.undoProduce(log._id);
+      // Appel de l'API de suppression / annulation avec fallback
+      let res;
+      try {
+        res = await patternsApi.undoProduce(log._id);
+      } catch (firstErr) {
+        // Fallback vers logsApi.deleteLog
+        res = await logsApi.deleteLog(log._id);
+      }
 
       // Mise à jour immédiate de l'état local
       setLogs((prev) => prev.filter((item) => item._id !== log._id));
 
-      notify.success(
+      const successMsg = res?.message || (
         isOrder
           ? `Expédition annulée avec succès (+${qty} remis en stock)`
           : `Opération supprimée avec succès (-${qty} pièces)`
       );
+      notify.success(successMsg);
 
       // Notification au composant parent pour rafraîchir les cartes et le stock
       if (onOperationDeleted) {

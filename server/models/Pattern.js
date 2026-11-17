@@ -92,7 +92,6 @@ const patternSchema = new mongoose.Schema(
 );
 
 // Indexes for fast sorting, filtering and lightning-fast searching
-patternSchema.index({ sku: 1 });
 patternSchema.index({ name_fr: 1 });
 patternSchema.index({ name_ar: 1 });
 patternSchema.index({ category: 1 });

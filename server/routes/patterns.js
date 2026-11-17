@@ -437,41 +437,59 @@ export function createPatternsRouter() {
         });
       }
 
-      const undoLog = await ActivityLog.create({
-        action_type: log.action_type === 'order_deduct' ? 'order_undo' : 'production_undo',
-        user_id: req.user._id,
-        user_name: req.user.name,
-        user_role: req.user.role,
-        pattern_id: pattern ? pattern._id : (log.pattern_id || null),
-        pattern_name: pattern ? (pattern.name_fr || pattern.name_ar) : (log.pattern_name || 'Patron'),
-        pattern_sku: pattern ? pattern.sku : (log.pattern_sku || ''),
-        quantity_changed: log.action_type === 'order_deduct' ? absQty : -absQty,
-        previous_stock: prevStock,
-        new_stock: newStock,
-        unit_price: unitPrice,
-        total_price: isProduction ? -rollbackAmount : 0,
-        notes: log.action_type === 'order_deduct'
-          ? `Annulation de la commande client (+${absQty} pièces restituées au stock)`
-          : `Annulation de la production précédente (-${absQty})`,
-        undone: 0,
-      });
+      let undoLog = null;
+      try {
+        const validPatternId = (pattern && pattern._id && mongoose.Types.ObjectId.isValid(pattern._id))
+          ? pattern._id
+          : (log.pattern_id && mongoose.Types.ObjectId.isValid(log.pattern_id) ? log.pattern_id : null);
+        const validUserId = (req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id))
+          ? req.user._id
+          : null;
 
-      emitGlobalUpdates({
-        type: 'undo',
-        pattern,
-        quantity: -rollbackQty,
-        user: req.user.name,
-        logId: undoLog._id.toString(),
-      });
+        undoLog = await ActivityLog.create({
+          action_type: log.action_type === 'order_deduct' ? 'order_undo' : 'production_undo',
+          user_id: validUserId,
+          user_name: req.user?.name || 'Admin',
+          user_role: req.user?.role || 'admin',
+          pattern_id: validPatternId,
+          pattern_name: pattern ? (pattern.name_fr || pattern.name_ar) : (log.pattern_name || 'Patron'),
+          pattern_sku: pattern ? pattern.sku : (log.pattern_sku || ''),
+          quantity_changed: log.action_type === 'order_deduct' ? absQty : -absQty,
+          previous_stock: prevStock,
+          new_stock: newStock,
+          unit_price: unitPrice,
+          total_price: isProduction ? -rollbackAmount : 0,
+          notes: log.action_type === 'order_deduct'
+            ? `Annulation de la commande client (+${absQty} pièces restituées au stock)`
+            : `Annulation de la production précédente (-${absQty})`,
+          undone: 0,
+        });
+      } catch (logErr) {
+        console.warn('Erreur création log d’audit annulation (non-bloquant) :', logErr);
+      }
+
+      try {
+        emitGlobalUpdates({
+          type: 'undo',
+          pattern,
+          quantity: log.action_type === 'order_deduct' ? absQty : -absQty,
+          user: req.user?.name || 'Admin',
+          logId: undoLog?._id ? undoLog._id.toString() : log._id.toString(),
+        });
+      } catch (emitErr) {
+        console.warn('Erreur emit (non-bloquant) :', emitErr);
+      }
 
       res.json({
         success: true,
-        message: `Production de (${rollbackQty}) pièce(s) annulée avec succès`,
+        message: log.action_type === 'order_deduct'
+          ? `Commande de (${absQty}) pièce(s) annulée et stock restitué avec succès`
+          : `Production de (${absQty}) pièce(s) annulée avec succès`,
         pattern: pattern || null,
       });
     } catch (err) {
       console.error('Erreur lors de l’annulation :', err);
-      res.status(500).json({ message: 'Échec de l’annulation de l’opération' });
+      res.status(500).json({ message: err.message || 'Échec de l’annulation de l’opération' });
     }
   });
 
