@@ -9,68 +9,8 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 export function createPatternsRouter(io) {
   const router = express.Router();
 
-  // Helper pour calculer et émettre les statistiques en temps réel
-  async function emitGlobalUpdates(actionDetails) {
-    if (!io) return;
-    try {
-      const totalPatterns = await Pattern.countDocuments();
-
-      const totalStockAgg = await Pattern.aggregate([
-        { $group: { _id: null, total: { $sum: '$current_stock' } } },
-      ]);
-      const totalStock = totalStockAgg.length > 0 ? totalStockAgg[0].total : 0;
-
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-
-      // Produits aujourd'hui
-      const producedAgg = await ActivityLog.aggregate([
-        {
-          $match: {
-            action_type: { $in: ['production_increment', 'production_custom'] },
-            undone: 0,
-            created_at: { $gte: startOfDay },
-          },
-        },
-        { $group: { _id: null, total: { $sum: '$quantity_changed' } } },
-      ]);
-      const producedToday = producedAgg.length > 0 ? producedAgg[0].total : 0;
-
-      // Déduits aujourd'hui (commandes expédiées)
-      const deductedAgg = await ActivityLog.aggregate([
-        {
-          $match: {
-            action_type: 'order_deduct',
-            undone: 0,
-            created_at: { $gte: startOfDay },
-          },
-        },
-        { $group: { _id: null, total: { $sum: '$quantity_changed' } } },
-      ]);
-      const deductedToday = deductedAgg.length > 0 ? Math.abs(deductedAgg[0].total) : 0;
-
-      // Nombre de patrons en alerte stock faible
-      const lowStockCount = await Pattern.countDocuments({
-        $expr: { $lte: ['$current_stock', '$low_stock_threshold'] },
-      });
-
-      const stats = {
-        totalPatterns,
-        totalStock,
-        producedToday,
-        deductedToday,
-        lowStockCount,
-        timestamp: new Date().toISOString(),
-      };
-
-      io.emit('stats_updated', stats);
-      if (actionDetails) {
-        io.emit('stock_updated', actionDetails);
-      }
-    } catch (e) {
-      console.error('Erreur lors de l’émission des événements socket :', e);
-    }
-  }
+  // Maintien pour compatibilité : pas d'émission socket dans l'environnement Vercel Serverless
+  async function emitGlobalUpdates() {}
 
   // GET /api/patterns : liste des patrons avec filtres
   router.get('/', authenticateToken, async (req, res) => {

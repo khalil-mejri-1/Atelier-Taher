@@ -5,7 +5,7 @@ import Pattern from '../models/Pattern.js';
 import ActivityLog from '../models/ActivityLog.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 
-export function createCategoriesRouter(io) {
+export function createCategoriesRouter() {
   const router = express.Router();
 
   // GET /api/categories - Récupérer toutes les catégories avec le nombre de patrons associés
@@ -72,11 +72,6 @@ export function createCategoriesRouter(io) {
         notes: `Création d'une nouvelle catégorie : "${trimmedName}"`,
         undone: 0,
       });
-
-      if (io) {
-        io.emit('categories_updated', { action: 'create', category: created });
-        io.emit('activity_logged', { log });
-      }
 
       res.status(201).json({
         success: true,
@@ -149,14 +144,6 @@ export function createCategoriesRouter(io) {
         notes: logNote,
         undone: 0,
       });
-
-      if (io) {
-        io.emit('categories_updated', { action: 'delete', categoryName, reassignTo: targetCategory });
-        if (patternCount > 0) {
-          io.emit('patterns_refresh', { reason: 'category_deleted_reassigned' });
-        }
-        io.emit('activity_logged', { log });
-      }
 
       res.json({
         success: true,

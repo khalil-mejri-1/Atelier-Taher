@@ -21,7 +21,6 @@ import {
   Puzzle
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
-import { socket, isVercelServer } from '../socket';
 import KpiCards from '../components/KpiCards';
 import ActivityLogFeed from '../components/ActivityLogFeed';
 import WorkerAccountsView from '../components/WorkerAccountsView';
@@ -98,51 +97,12 @@ export default function AdminDashboard() {
     loadData();
   }, [search, selectedCategory, filterLowStockOnly]);
 
-  // Synchronisation temps réel
+  // Synchronisation périodique automatique des données de production et du stock (toutes les 10s)
   useEffect(() => {
-    function onStockUpdated(data) {
-      setPatterns((prev) =>
-        prev.map((p) => (p.id === data.pattern.id ? { ...p, current_stock: data.pattern.current_stock } : p))
-      );
-    }
-
-    function onStatsUpdated(freshStats) {
-      setStats(freshStats);
-    }
-
-    function onActivityLogged(payload) {
-      if (payload?.log) {
-        setLogs((prev) => [payload.log, ...prev.slice(0, 99)]);
-      }
-    }
-
-    function onRefresh() {
+    const interval = setInterval(() => {
       loadData();
-    }
-
-    socket.on('stock_updated', onStockUpdated);
-    socket.on('stats_updated', onStatsUpdated);
-    socket.on('activity_logged', onActivityLogged);
-    socket.on('patterns_refresh', onRefresh);
-    socket.on('categories_updated', onRefresh);
-
-    return () => {
-      socket.off('stock_updated', onStockUpdated);
-      socket.off('stats_updated', onStatsUpdated);
-      socket.off('activity_logged', onActivityLogged);
-      socket.off('patterns_refresh', onRefresh);
-      socket.off('categories_updated', onRefresh);
-    };
-  }, []);
-
-  // Synchronisation périodique automatique si hébergé sur Vercel (sans WebSocket)
-  useEffect(() => {
-    if (isVercelServer) {
-      const interval = setInterval(() => {
-        loadData();
-      }, 10000);
-      return () => clearInterval(interval);
-    }
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Selection toggle

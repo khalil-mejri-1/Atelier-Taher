@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { socket, isVercelServer } from '../socket';
 import { 
   Scissors, 
   ShieldCheck, 
@@ -11,25 +10,7 @@ import {
 
 export default function Navbar() {
   const { user, logout, switchDemoUser, demoAccounts } = useAuth();
-  const [isConnected, setIsConnected] = useState(socket.connected);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
-
-  useEffect(() => {
-    function onConnect() {
-      setIsConnected(true);
-    }
-    function onDisconnect() {
-      setIsConnected(false);
-    }
-
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-
-    return () => {
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
-    };
-  }, []);
 
   const isAdmin = user?.role === 'admin';
 
@@ -57,20 +38,14 @@ export default function Navbar() {
           {/* Right Center: Live Sync Pill & Fast Role Switcher */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             
-            {/* Real-time Status Badge */}
+            {/* Online Status Badge */}
             <div 
-              title={
-                isVercelServer 
-                  ? 'Connecté à l’API Cloud Vercel (Mode REST/HTTP)' 
-                  : isConnected 
-                  ? 'Connecté en temps réel via WebSocket' 
-                  : 'Reconnexion en cours...'
-              }
+              title="Système connecté au serveur Vercel Cloud"
               className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium bg-[#F0FDF4] text-[#15803D] border border-green-200"
             >
-              <span className={`w-2 h-2 rounded-full ${isConnected || isVercelServer ? 'bg-[#15803D] animate-pulse' : 'bg-amber-500'}`} />
+              <span className="w-2 h-2 rounded-full bg-[#15803D] animate-pulse" />
               <span className="hidden md:inline font-sku text-[11px] font-semibold tracking-wide">
-                {isConnected || isVercelServer ? 'EN DIRECT' : 'CONNEXION'}
+                EN LIGNE
               </span>
             </div>
 

@@ -15,7 +15,6 @@ import {
   History
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
-import { socket, isVercelServer } from '../socket';
 import UndoToast from '../components/UndoToast';
 import ProduceCustomModal from '../components/ProduceCustomModal';
 import ProducePartsModal from '../components/ProducePartsModal';
@@ -84,45 +83,12 @@ export default function WorkerView() {
     loadData();
   }, [selectedCategory, search]);
 
-  // Synchronisation temps réel via Socket.io
+  // Synchronisation périodique automatique des patrons et du stock (toutes les 10s)
   useEffect(() => {
-    function onStockUpdated(data) {
-      setPatterns((prev) => 
-        prev.map((p) => (p.id === data.pattern.id ? { ...p, current_stock: data.pattern.current_stock } : p))
-      );
-    }
-
-    function onStatsUpdated(stats) {
-      if (stats.producedToday !== undefined) {
-        setTodayCount(stats.producedToday);
-      }
-    }
-
-    function onRefresh() {
+    const interval = setInterval(() => {
       loadData();
-    }
-
-    socket.on('stock_updated', onStockUpdated);
-    socket.on('stats_updated', onStatsUpdated);
-    socket.on('patterns_refresh', onRefresh);
-    socket.on('categories_updated', onRefresh);
-
-    return () => {
-      socket.off('stock_updated', onStockUpdated);
-      socket.off('stats_updated', onStatsUpdated);
-      socket.off('patterns_refresh', onRefresh);
-      socket.off('categories_updated', onRefresh);
-    };
-  }, []);
-
-  // Synchronisation périodique si hébergé sur Vercel (où les WebSockets ne sont pas supportés)
-  useEffect(() => {
-    if (isVercelServer) {
-      const interval = setInterval(() => {
-        loadData();
-      }, 10000);
-      return () => clearInterval(interval);
-    }
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Helper to get worker's printed parts for a pattern

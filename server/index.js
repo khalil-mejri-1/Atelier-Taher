@@ -1,6 +1,4 @@
 import express from 'express';
-import http from 'http';
-import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -21,19 +19,10 @@ import { createCategoriesRouter } from './routes/categories.js';
 dotenv.config();
 
 const app = express();
-const server = http.createServer(app);
 
 // Connect to MongoDB asynchronously without blocking HTTP server startup
 connectDB().catch((err) => {
   console.warn('⚠️ Échec de connexion initiale à MongoDB :', err.message);
-});
-
-// Setup Socket.IO for instant live updates across Admin and Worker interfaces
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  },
 });
 
 app.use(cors());
@@ -42,8 +31,8 @@ app.use(express.urlencoded({ limit: '15mb', extended: true }));
 
 // API Routes
 app.use('/api/auth', authRouter);
-app.use('/api/patterns', createPatternsRouter(io));
-app.use('/api/categories', createCategoriesRouter(io));
+app.use('/api/patterns', createPatternsRouter());
+app.use('/api/categories', createCategoriesRouter());
 app.use('/api/logs', logsRouter);
 app.use('/api/workers', workersRouter);
 
@@ -66,30 +55,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Socket connection
-io.on('connection', (socket) => {
-  console.log(`[Socket.io] Client connected: ${socket.id}`);
-
-  socket.on('disconnect', () => {
-    console.log(`[Socket.io] Client disconnected: ${socket.id}`);
-  });
-});
-
 const PORT = process.env.PORT || 5000;
 
 if (!process.env.VERCEL) {
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.warn(`⚠️ Le port ${PORT} est déjà occupé. Un autre serveur fonctionne déjà sur ce port.`);
-    } else {
-      console.error('❌ Erreur serveur HTTP :', err);
-    }
-  });
-
-  server.listen(PORT, '0.0.0.0', () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`=================================================`);
-    console.log(`🍃 Atelier Taher Server (MongoDB) is running on port ${PORT}`);
-    console.log(`📡 WebSocket server ready on http://127.0.0.1:${PORT}`);
+    console.log(`🍃 Atelier Taher Server running on port ${PORT}`);
+    console.log(`📡 REST API ready on http://127.0.0.1:${PORT}`);
     console.log(`=================================================`);
   });
 }
