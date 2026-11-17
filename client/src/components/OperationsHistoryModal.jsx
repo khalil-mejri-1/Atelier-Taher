@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   Trash2,
@@ -43,7 +43,9 @@ export default function OperationsHistoryModal({
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
 
-  // Synchroniser l'état quand les props changent
+  const requestIdRef = useRef(0);
+
+  // Synchroniser l'état quand les props changent à l'ouverture
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialFilter || 'all');
@@ -54,9 +56,10 @@ export default function OperationsHistoryModal({
     }
   }, [isOpen, initialFilter, initialToday, pattern]);
 
-  // Charger les opérations depuis l'API
+  // Charger les opérations depuis l'API avec protection anti-concurrence (race condition guard)
   const fetchOperations = async () => {
     if (!isOpen) return;
+    const currentReqId = ++requestIdRef.current;
     try {
       setLoading(true);
       setError('');
@@ -84,12 +87,17 @@ export default function OperationsHistoryModal({
       }
 
       const res = await logsApi.getLogs(params);
+      // Ignorer si une requête plus récente a déjà été lancée
+      if (currentReqId !== requestIdRef.current) return;
       setLogs(res.logs || []);
     } catch (err) {
+      if (currentReqId !== requestIdRef.current) return;
       console.error('Erreur chargement opérations :', err);
       setError('Impossible de charger les opérations.');
     } finally {
-      setLoading(false);
+      if (currentReqId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -99,11 +107,27 @@ export default function OperationsHistoryModal({
     }
   }, [isOpen, activeTab, todayOnly, selectedPattern, search]);
 
-  // Calcul des totaux de la liste courante
+  // Filtrage strict côté client pour garantir la cohérence d'affichage selon l'onglet actif
+  const displayedLogs = useMemo(() => {
+    return logs.filter((log) => {
+      if (activeTab === 'production') {
+        return (
+          log.action_type === 'production_increment' ||
+          log.action_type === 'production_custom'
+        );
+      }
+      if (activeTab === 'order') {
+        return log.action_type === 'order_deduct';
+      }
+      return true;
+    });
+  }, [logs, activeTab]);
+
+  // Calcul des totaux de la liste courante affichée
   const { totalProduced, totalDeducted, totalLogsCount } = useMemo(() => {
     let prod = 0;
     let ded = 0;
-    logs.forEach((log) => {
+    displayedLogs.forEach((log) => {
       const qty = Math.abs(log.quantity_changed || 1);
       if (log.action_type === 'order_deduct') {
         ded += qty;
@@ -117,9 +141,9 @@ export default function OperationsHistoryModal({
     return {
       totalProduced: prod,
       totalDeducted: ded,
-      totalLogsCount: logs.length,
+      totalLogsCount: displayedLogs.length,
     };
-  }, [logs]);
+  }, [displayedLogs]);
 
   // Action de suppression / annulation d'une opération
   const handleDeleteOperation = async (log) => {
@@ -186,12 +210,23 @@ export default function OperationsHistoryModal({
 
   // Suppression groupée de toutes les opérations affichées (حذف الكل)
   const handleDeleteAllOperations = async () => {
-    if (isDeletingAll || deletingId !== null || logs.length === 0) return;
+    if (isDeletingAll || deletingId !== null || displayedLogs.length === 0) return;
 
-    const count = logs.length;
+    const count = displayedLogs.length;
+    const isOrder = activeTab === 'order';
+    const isProd = activeTab === 'production';
+
     const confirmed = await confirm({
-      title: "Supprimer toutes les opérations",
-      titleAr: "تأكيد حذف جميع العمليات المعروضة",
+      title: isOrder
+        ? "Supprimer toutes les expéditions"
+        : isProd
+        ? "Supprimer toutes les productions"
+        : "Supprimer toutes les opérations",
+      titleAr: isOrder
+        ? `تأكيد حذف جميع عمليات الشحن المعروضة (${count})`
+        : isProd
+        ? `تأكيد حذف جميع عمليات الإنتاج المعروضة (${count})`
+        : `تأكيد حذف جميع العمليات المعروضة (${count})`,
       message: `Voulez-vous vraiment supprimer et annuler TOUTES les ${count} opérations affichées ? Le stock sera automatiquement réajusté pour chacune.`,
       messageAr: `هل أنت متأكد من حذف جميع العمليات المعروضة (${count} عملية)؟ سيتم استرجاع المخزون وتعديل الأرصدة تلقائياً لكل عملية.`,
       type: "danger",
@@ -203,12 +238,12 @@ export default function OperationsHistoryModal({
 
     setIsDeletingAll(true);
     try {
-      const logIds = logs.map((l) => l._id);
+      const logIds = displayedLogs.map((l) => l._id);
       try {
         await logsApi.bulkDeleteLogs(logIds);
       } catch (bulkErr) {
         // Fallback séquentiel si le endpoint bulk rencontre un imprévu
-        for (const log of logs) {
+        for (const log of displayedLogs) {
           try {
             await patternsApi.undoProduce(log._id);
           } catch (e) {
@@ -217,7 +252,7 @@ export default function OperationsHistoryModal({
         }
       }
 
-      setLogs([]);
+      setLogs((prev) => prev.filter((l) => !logIds.includes(l._id)));
       notify.success(`Toutes les (${count}) opérations ont été supprimées avec succès`);
 
       if (onOperationDeleted) {
@@ -436,7 +471,7 @@ export default function OperationsHistoryModal({
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
               <span className="font-semibold text-slate-700">{totalLogsCount} opérations</span>
-              {totalProduced > 0 && (
+              {activeTab !== 'order' && totalProduced > 0 && (
                 <>
                   <span>•</span>
                   <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -444,7 +479,7 @@ export default function OperationsHistoryModal({
                   </span>
                 </>
               )}
-              {totalDeducted > 0 && (
+              {activeTab !== 'production' && totalDeducted > 0 && (
                 <>
                   <span>•</span>
                   <span className="text-red-700 font-bold bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
@@ -454,7 +489,7 @@ export default function OperationsHistoryModal({
               )}
             </div>
 
-            {logs.length > 0 && (
+            {displayedLogs.length > 0 && (
               <button
                 type="button"
                 onClick={handleDeleteAllOperations}
@@ -470,7 +505,7 @@ export default function OperationsHistoryModal({
                 ) : (
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Tout supprimer / حذف الكل ({logs.length})</span>
+                    <span>Tout supprimer / حذف الكل ({displayedLogs.length})</span>
                   </>
                 )}
               </button>
@@ -490,7 +525,7 @@ export default function OperationsHistoryModal({
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
-          ) : logs.length === 0 ? (
+          ) : displayedLogs.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 text-center px-4">
               <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
                 <Clock className="w-6 h-6" />
@@ -501,7 +536,7 @@ export default function OperationsHistoryModal({
               </p>
             </div>
           ) : (
-            logs.map((log) => {
+            displayedLogs.map((log) => {
               const isOrder = log.action_type === 'order_deduct';
               const rawQty = log.quantity_changed || 1;
               const qty = Math.abs(rawQty);
@@ -654,9 +689,9 @@ export default function OperationsHistoryModal({
         <div className="px-4 sm:px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs shrink-0">
           <div className="flex items-center gap-2.5">
             <span className="text-[11px] text-slate-500 font-medium">
-              {logs.length} opération(s) affichée(s)
+              {displayedLogs.length} opération(s) affichée(s)
             </span>
-            {logs.length > 0 && (
+            {displayedLogs.length > 0 && (
               <button
                 type="button"
                 onClick={handleDeleteAllOperations}
@@ -665,7 +700,7 @@ export default function OperationsHistoryModal({
                 title="Supprimer toutes les opérations / حذف الكل"
               >
                 <Trash2 className="w-3 h-3" />
-                <span>حذف الكل ({logs.length})</span>
+                <span>حذف الكل ({displayedLogs.length})</span>
               </button>
             )}
           </div>

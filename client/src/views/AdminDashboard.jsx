@@ -1152,15 +1152,18 @@ export default function AdminDashboard() {
       />
 
       {/* Operations History Modal (Sujet & suppression des opérations) */}
-      <OperationsHistoryModal
-        isOpen={operationsModalOpen}
-        onClose={() => setOperationsModalOpen(false)}
-        pattern={operationsPattern}
-        initialFilter={operationsFilter}
-        initialToday={operationsTodayOnly}
-        onOperationDeleted={() => loadData(false)}
-        onPreviewImage={setPreviewImage}
-      />
+      {operationsModalOpen && (
+        <OperationsHistoryModal
+          key={`${operationsFilter}-${operationsTodayOnly ? 'today' : 'all'}-${operationsPattern?._id || 'all'}`}
+          isOpen={operationsModalOpen}
+          onClose={() => setOperationsModalOpen(false)}
+          pattern={operationsPattern}
+          initialFilter={operationsFilter}
+          initialToday={operationsTodayOnly}
+          onOperationDeleted={() => loadData(false)}
+          onPreviewImage={setPreviewImage}
+        />
+      )}
 
       {/* Image Preview Lightbox */}
       <ImagePreviewModal
