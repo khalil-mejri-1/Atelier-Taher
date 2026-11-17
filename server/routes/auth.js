@@ -19,26 +19,6 @@ const FALLBACK_USERS = [
     pin: '1111',
     status: 'active',
   },
-  {
-    _id: '660000000000000000000002',
-    username: 'worker',
-    name: 'Ahmed Ben Salem (Opérateur machine)',
-    role: 'worker',
-    roleLabel: 'Opérateur machine (Production)',
-    password: 'worker123',
-    pin: '2222',
-    status: 'active',
-  },
-  {
-    _id: '660000000000000000000003',
-    username: 'samir',
-    name: 'Samir Jaziri (Opérateur de coupe)',
-    role: 'worker',
-    roleLabel: 'Opérateur de coupe (Production)',
-    password: 'samir123',
-    pin: '3333',
-    status: 'active',
-  },
 ];
 
 // Login route (supports username + password or PIN)
@@ -159,8 +139,8 @@ router.get('/demo-accounts', async (req, res) => {
             username: u.username,
             name: u.name,
             role: u.role,
-            roleLabel: u.role === 'admin' ? "Propriétaire de l'atelier (Admin)" : "Opérateur machine (Production)",
-            password: u.role === 'admin' ? 'admin123' : u.username === 'worker' ? 'worker123' : 'samir123',
+            roleLabel: u.role === 'admin' ? "Administrateur (Admin)" : "Opérateur machine (Production)",
+            password: u.role === 'admin' ? 'admin123' : '',
             pin: u.pin,
           }));
         }

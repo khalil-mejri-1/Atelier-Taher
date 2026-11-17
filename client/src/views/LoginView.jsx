@@ -39,9 +39,19 @@ export default function LoginView() {
 
   const handleQuickLogin = async (acc) => {
     setError('');
+    setUsername(acc.username);
     setLoading(true);
     try {
-      await login({ username: acc.username, password: acc.password });
+      if (acc.password) {
+        await login({ username: acc.username, password: acc.password });
+      } else if (acc.pin) {
+        setUsePin(true);
+        setPin(acc.pin);
+        await login({ username: acc.username, pin: acc.pin });
+      } else {
+        setPassword('');
+        setError('Veuillez saisir votre mot de passe pour ce compte');
+      }
     } catch (err) {
       setError(err.message || 'Échec de la connexion');
     } finally {

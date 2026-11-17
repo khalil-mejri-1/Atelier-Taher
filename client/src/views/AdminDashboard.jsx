@@ -262,7 +262,7 @@ export default function AdminDashboard() {
                   : 'bg-white text-slate-600 border border-[#E2E8F0]'
               }`}
             >
-              👷 Ouvriers
+              👥 Utilisateurs
             </button>
             <button
               onClick={() => setActiveTab('logs')}
@@ -340,7 +340,7 @@ export default function AdminDashboard() {
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Comptes opérateurs</span>
+              <span>Comptes & Utilisateurs</span>
             </button>
 
             <button

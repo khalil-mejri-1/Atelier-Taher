@@ -69,7 +69,7 @@ router.post('/', async (req, res) => {
       quantity_changed: 0,
       previous_stock: 0,
       new_stock: 0,
-      notes: `Création du compte opérateur (${created.name} - @${created.username})`,
+      notes: `Création du compte ${created.role === 'admin' ? 'Administrateur' : 'Opérateur'} : ${created.name} (@${created.username})`,
       undone: 0,
     });
 
@@ -78,7 +78,7 @@ router.post('/', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Compte opérateur créé avec succès',
+      message: `Compte ${created.role === 'admin' ? 'administrateur' : 'opérateur'} créé avec succès`,
       worker: userObj,
     });
   } catch (err) {
@@ -99,6 +99,10 @@ router.put('/:id', async (req, res) => {
 
     if (worker.username === 'admin' && req.body.status === 'suspended') {
       return res.status(400).json({ message: 'Impossible de suspendre le compte de l’administrateur principal' });
+    }
+
+    if (worker.username === 'admin' && req.body.role && req.body.role !== 'admin') {
+      return res.status(400).json({ message: 'Impossible de modifier le rôle de l’administrateur principal' });
     }
 
     const { name, password, pin, status, role } = req.body;
