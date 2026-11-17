@@ -650,11 +650,11 @@ export default function AdminDashboard() {
                 </div>
               ) : viewMode === 'table' ? (
                 /* === TABLE VIEW === */
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
+                <div className="overflow-x-auto relative">
+                  <table className="w-full text-left text-xs border-separate border-spacing-0">
                     <thead>
-                      <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold text-[11px] uppercase tracking-wider select-none">
-                        <th className="py-3 px-3 w-10 text-center">
+                      <tr className="text-slate-600 font-semibold text-[11px] uppercase tracking-wider select-none">
+                        <th className="py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center sticky left-0 z-20 bg-slate-50 border-b border-slate-200">
                           <button
                             onClick={selectAll}
                             className="text-slate-500 hover:text-black cursor-pointer inline-flex items-center justify-center"
@@ -667,18 +667,18 @@ export default function AdminDashboard() {
                             )}
                           </button>
                         </th>
-                        <th className="py-3 px-3 w-16 text-center">Photo</th>
-                        <th className="py-3 px-3 w-28">Référence (SKU)</th>
-                        <th className="py-3 px-4 min-w-[200px]">Modèle / Désignation</th>
-                        <th className="py-3 px-3 min-w-[120px]">Catégorie</th>
-                        <th className="py-3 px-3 min-w-[140px]">Tailles & Matière</th>
-                        <th className="py-3 px-3 text-center min-w-[110px]">Tarif / Pièce</th>
-                        <th className="py-3 px-4 text-center min-w-[140px]">Stock Disponible</th>
-                        <th className="py-3 px-4 text-center min-w-[190px]">Déstockage Rapide</th>
-                        <th className="py-3 px-4 text-right min-w-[90px]">Actions</th>
+                        <th className="py-3 px-3 w-16 min-w-[64px] max-w-[64px] text-center sticky left-[44px] z-20 bg-slate-50 border-b border-slate-200">Photo</th>
+                        <th className="py-3 px-3 w-32 min-w-[128px] sticky left-[108px] z-20 bg-slate-50 border-b border-slate-200 border-r border-slate-200 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)]">Référence (SKU)</th>
+                        <th className="py-3 px-4 min-w-[200px] bg-slate-50/80 border-b border-slate-200">Modèle / Désignation</th>
+                        <th className="py-3 px-3 min-w-[120px] bg-slate-50/80 border-b border-slate-200">Catégorie</th>
+                        <th className="py-3 px-3 min-w-[140px] bg-slate-50/80 border-b border-slate-200">Tailles & Matière</th>
+                        <th className="py-3 px-3 text-center min-w-[110px] bg-slate-50/80 border-b border-slate-200">Tarif / Pièce</th>
+                        <th className="py-3 px-4 text-center min-w-[140px] bg-slate-50/80 border-b border-slate-200">Stock Disponible</th>
+                        <th className="py-3 px-4 text-center min-w-[190px] bg-slate-50/80 border-b border-slate-200">Déstockage Rapide</th>
+                        <th className="py-3 px-4 text-right min-w-[90px] bg-slate-50/80 border-b border-slate-200">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody>
                       {displayedPatterns.map((pattern) => {
                         const isSelected = selectedIds.includes(pattern.id);
                         const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
@@ -687,12 +687,14 @@ export default function AdminDashboard() {
                         return (
                           <tr
                             key={pattern.id}
-                            className={`hover:bg-slate-50/80 transition-colors group ${
-                              isSelected ? 'bg-slate-50/90 ring-1 ring-inset ring-slate-800' : ''
+                            className={`group transition-colors ${
+                              isSelected ? 'bg-slate-100/90' : 'hover:bg-slate-50/80'
                             }`}
                           >
-                            {/* Checkbox */}
-                            <td className="py-3 px-3 text-center align-middle">
+                            {/* Checkbox (Sticky Left 0) */}
+                            <td className={`py-3 px-3 w-11 min-w-[44px] max-w-[44px] text-center align-middle sticky left-0 z-10 border-b border-slate-100 transition-colors ${
+                              isSelected ? 'bg-slate-100' : 'bg-white group-hover:bg-slate-50'
+                            }`}>
                               <button
                                 onClick={() => toggleSelectPattern(pattern.id)}
                                 className="text-slate-400 hover:text-slate-800 cursor-pointer inline-flex items-center justify-center"
@@ -705,8 +707,10 @@ export default function AdminDashboard() {
                               </button>
                             </td>
 
-                            {/* Photo / Thumbnail */}
-                            <td className="py-3 px-3 text-center align-middle">
+                            {/* Photo / Thumbnail (Sticky Left 44px) */}
+                            <td className={`py-3 px-3 w-16 min-w-[64px] max-w-[64px] text-center align-middle sticky left-[44px] z-10 border-b border-slate-100 transition-colors ${
+                              isSelected ? 'bg-slate-100' : 'bg-white group-hover:bg-slate-50'
+                            }`}>
                               {pattern.image_url ? (
                                 <img
                                   src={pattern.image_url}
@@ -732,15 +736,17 @@ export default function AdminDashboard() {
                               )}
                             </td>
 
-                            {/* SKU */}
-                            <td className="py-3 px-3 align-middle">
+                            {/* SKU (Sticky Left 108px with Right Shadow) */}
+                            <td className={`py-3 px-3 w-32 min-w-[128px] align-middle sticky left-[108px] z-10 border-b border-slate-100 border-r border-slate-200/90 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)] transition-colors ${
+                              isSelected ? 'bg-slate-100' : 'bg-white group-hover:bg-slate-50'
+                            }`}>
                               <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/90 whitespace-nowrap inline-block">
                                 {pattern.sku}
                               </span>
                             </td>
 
                             {/* Nom & Description */}
-                            <td className="py-3 px-4 align-middle">
+                            <td className="py-3 px-4 align-middle border-b border-slate-100">
                               <div className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
                                 {pattern.name_fr || pattern.name_ar}
                               </div>
@@ -768,14 +774,14 @@ export default function AdminDashboard() {
                             </td>
 
                             {/* Catégorie */}
-                            <td className="py-3 px-3 align-middle">
+                            <td className="py-3 px-3 align-middle border-b border-slate-100">
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80 whitespace-nowrap">
                                 {pattern.category}
                               </span>
                             </td>
 
                             {/* Gradation & Matière */}
-                            <td className="py-3 px-3 align-middle text-[11px]">
+                            <td className="py-3 px-3 align-middle text-[11px] border-b border-slate-100">
                               <div className="text-slate-700 font-medium truncate max-w-[140px]" title={pattern.size_range || 'Standard'}>
                                 <span className="text-slate-400 text-[10px]">Tailles : </span>
                                 {pattern.size_range || 'Standard'}
@@ -787,14 +793,14 @@ export default function AdminDashboard() {
                             </td>
 
                             {/* Tarif / Pièce */}
-                            <td className="py-3 px-3 text-center align-middle whitespace-nowrap">
+                            <td className="py-3 px-3 text-center align-middle whitespace-nowrap border-b border-slate-100">
                               <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 inline-block shadow-2xs">
                                 {parseFloat(pattern.price || 0).toFixed(3)} DT
                               </span>
                             </td>
 
                             {/* Stock Disponible */}
-                            <td className="py-3 px-4 text-center align-middle whitespace-nowrap">
+                            <td className="py-3 px-4 text-center align-middle whitespace-nowrap border-b border-slate-100">
                               <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
                                 isOutOfStock
                                   ? 'bg-[#FEF2F2] text-[#B91C1C] border-red-200'
@@ -820,7 +826,7 @@ export default function AdminDashboard() {
                             </td>
 
                             {/* Déstockage Rapide */}
-                            <td className="py-3 px-4 text-center align-middle whitespace-nowrap">
+                            <td className="py-3 px-4 text-center align-middle whitespace-nowrap border-b border-slate-100">
                               <div className="inline-flex items-center gap-1.5 justify-center">
                                 <button
                                   onClick={() => handleQuickDeductOne(pattern)}
@@ -852,7 +858,7 @@ export default function AdminDashboard() {
                             </td>
 
                             {/* Actions (Modifier / Supprimer / Opérations) */}
-                            <td className="py-3 px-4 text-right align-middle whitespace-nowrap">
+                            <td className="py-3 px-4 text-right align-middle whitespace-nowrap border-b border-slate-100">
                               <div className="inline-flex items-center gap-1">
                                 <button
                                   onClick={() => handleOpenOperations('all', false, pattern)}

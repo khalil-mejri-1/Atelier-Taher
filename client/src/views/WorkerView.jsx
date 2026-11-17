@@ -553,21 +553,21 @@ export default function WorkerView() {
         ) : viewMode === 'table' ? (
           /* === WORKER TABLE VIEW (TABLE LAYOUT PRESERVED ON ALL SCREEN SIZES) === */
           <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
-            <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="overflow-x-auto w-full relative">
+              <table className="w-full text-left text-xs border-separate border-spacing-0">
                 <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold text-[11px] uppercase tracking-wider select-none">
-                    <th className="py-2.5 sm:py-3 px-2 sm:px-3 w-14 sm:w-16 text-center whitespace-nowrap">Photo</th>
-                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 w-28 whitespace-nowrap">Référence (SKU)</th>
-                    <th className="py-2.5 sm:py-3 px-3 sm:px-4 min-w-[160px] sm:min-w-[200px] whitespace-nowrap">Modèle / Désignation</th>
-                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 min-w-[110px] whitespace-nowrap">Catégorie</th>
-                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 min-w-[130px] whitespace-nowrap">Tailles & Matière</th>
-                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 text-center whitespace-nowrap min-w-[95px]">Tarif / Pièce</th>
-                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-4 text-center whitespace-nowrap min-w-[95px]">Stock Actuel</th>
-                    <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-center whitespace-nowrap min-w-[170px] sm:min-w-[200px]">Enregistrement Production</th>
+                  <tr className="text-slate-600 font-semibold text-[11px] uppercase tracking-wider select-none">
+                    <th className="py-2.5 sm:py-3 px-2 sm:px-3 w-16 min-w-[64px] max-w-[64px] text-center whitespace-nowrap sticky left-0 z-20 bg-slate-50 border-b border-slate-200">Photo</th>
+                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 w-32 min-w-[120px] whitespace-nowrap sticky left-[64px] z-20 bg-slate-50 border-b border-slate-200 border-r border-slate-200 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)]">Référence (SKU)</th>
+                    <th className="py-2.5 sm:py-3 px-3 sm:px-4 min-w-[160px] sm:min-w-[200px] whitespace-nowrap bg-slate-50/80 border-b border-slate-200">Modèle / Désignation</th>
+                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 min-w-[110px] whitespace-nowrap bg-slate-50/80 border-b border-slate-200">Catégorie</th>
+                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 min-w-[130px] whitespace-nowrap bg-slate-50/80 border-b border-slate-200">Tailles & Matière</th>
+                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-3 text-center whitespace-nowrap min-w-[95px] bg-slate-50/80 border-b border-slate-200">Tarif / Pièce</th>
+                    <th className="py-2.5 sm:py-3 px-2.5 sm:px-4 text-center whitespace-nowrap min-w-[95px] bg-slate-50/80 border-b border-slate-200">Stock Actuel</th>
+                    <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-center whitespace-nowrap min-w-[170px] sm:min-w-[200px] bg-slate-50/80 border-b border-slate-200">Enregistrement Production</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {displayedPatterns.map((pattern) => {
                     const isLowStock = pattern.current_stock <= pattern.low_stock_threshold;
                     const isCritical = pattern.current_stock <= 3;
@@ -577,10 +577,10 @@ export default function WorkerView() {
                     return (
                       <tr
                         key={pattern.id}
-                        className="hover:bg-slate-50/80 transition-colors"
+                        className="hover:bg-slate-50/80 transition-colors group"
                       >
-                        {/* Thumbnail */}
-                        <td className="py-2.5 sm:py-3 px-2 sm:px-3 text-center align-middle">
+                        {/* Thumbnail (Sticky Left 0) */}
+                        <td className="py-2.5 sm:py-3 px-2 sm:px-3 w-16 min-w-[64px] max-w-[64px] text-center align-middle sticky left-0 z-10 border-b border-slate-100 bg-white group-hover:bg-slate-50 transition-colors">
                           {pattern.image_url ? (
                             <img
                               src={pattern.image_url}
@@ -606,15 +606,15 @@ export default function WorkerView() {
                           )}
                         </td>
 
-                        {/* SKU */}
-                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 align-middle">
+                        {/* SKU (Sticky Left 64px with Right Shadow) */}
+                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 w-32 min-w-[120px] align-middle sticky left-[64px] z-10 border-b border-slate-100 border-r border-slate-200 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)] bg-white group-hover:bg-slate-50 transition-colors">
                           <span className="font-mono text-[11px] sm:text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 whitespace-nowrap inline-block">
                             {pattern.sku}
                           </span>
                         </td>
 
                         {/* Nom */}
-                        <td className="py-2.5 sm:py-3 px-3 sm:px-4 align-middle">
+                        <td className="py-2.5 sm:py-3 px-3 sm:px-4 align-middle border-b border-slate-100">
                           <div className="font-bold text-slate-900 text-xs sm:text-sm leading-snug">
                             {pattern.name_fr || pattern.name_ar}
                           </div>
@@ -644,14 +644,14 @@ export default function WorkerView() {
                         </td>
 
                         {/* Catégorie */}
-                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 align-middle">
+                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 align-middle border-b border-slate-100">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/80 whitespace-nowrap">
                             {pattern.category}
                           </span>
                         </td>
 
                         {/* Tailles & Matière */}
-                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 align-middle text-[11px]">
+                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 align-middle text-[11px] border-b border-slate-100">
                           <div className="text-slate-700 font-medium truncate max-w-[130px]">
                             <span className="text-slate-400 text-[10px]">Taille : </span>
                             {pattern.size_range || 'Standard'}
@@ -663,14 +663,14 @@ export default function WorkerView() {
                         </td>
 
                         {/* Tarif unitaire */}
-                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 text-center align-middle whitespace-nowrap">
+                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-3 text-center align-middle whitespace-nowrap border-b border-slate-100">
                           <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                             {parseFloat(pattern.price || 0).toFixed(3)} DT
                           </span>
                         </td>
 
                         {/* Stock */}
-                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-4 text-center align-middle whitespace-nowrap">
+                        <td className="py-2.5 sm:py-3 px-2.5 sm:px-4 text-center align-middle whitespace-nowrap border-b border-slate-100">
                           <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
                             isCritical
                               ? 'bg-[#FEF2F2] text-[#B91C1C] border-red-200'
@@ -692,7 +692,7 @@ export default function WorkerView() {
                         </td>
 
                         {/* Fast Produce Buttons */}
-                        <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-center align-middle whitespace-nowrap">
+                        <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-center align-middle whitespace-nowrap border-b border-slate-100">
                           {isMultiPart ? (
                             <div className="inline-flex items-center gap-1.5 justify-center">
                               <button
