@@ -172,6 +172,44 @@ export default function DailyProductionTracker({ onPreviewImage }) {
     }
   };
 
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+
+  const handleDeleteAllDailyLogs = async () => {
+    if (isDeletingAll || deletingId || filteredLogs.length === 0) return;
+    const count = filteredLogs.length;
+
+    const confirmed = await confirm({
+      title: "Supprimer toutes les opérations",
+      titleAr: "تأكيد حذف جميع عمليات اليوم",
+      message: `Voulez-vous vraiment supprimer toutes les ${count} opérations du ${selectedDate} ? Le stock sera automatiquement réajusté.`,
+      messageAr: `هل أنت متأكد من حذف جميع العمليات (${count} عملية) لليوم؟ سيتم استرجاع المخزون وتعديل الأرصدة تلقائياً.`,
+      type: "danger",
+      confirmText: `Oui, tout supprimer (${count}) / نعم، احذف الكل`,
+      cancelText: "Annuler / تراجع",
+    });
+
+    if (!confirmed) return;
+
+    setIsDeletingAll(true);
+    try {
+      const logIds = filteredLogs.map((l) => l._id);
+      try {
+        await logsApi.bulkDeleteLogs(logIds);
+      } catch (e) {
+        for (const l of filteredLogs) {
+          await patternsApi.undoProduce(l._id).catch(() => {});
+        }
+      }
+      notify.success(`Toutes les (${count}) opérations ont été supprimées`);
+      await loadDailyReport();
+    } catch (err) {
+      console.error(err);
+      notify.error(err.message || 'Échec de la suppression groupée');
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-3.5 text-left">
       {/* 1. TOP HEADER & DATE CONTROL BAR */}
@@ -398,6 +436,27 @@ export default function DailyProductionTracker({ onPreviewImage }) {
             <span className="text-[11px] font-bold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs font-mono">
               {filteredLogs.length} ligne{filteredLogs.length !== 1 ? 's' : ''}
             </span>
+            {filteredLogs.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDeleteAllDailyLogs}
+                disabled={isDeletingAll || deletingId !== null}
+                className="px-2.5 py-1 text-red-600 hover:text-white hover:bg-red-600 border border-red-200 hover:border-red-600 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                title="Supprimer toutes les opérations de cette liste / حذف الكل"
+              >
+                {isDeletingAll ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Suppression...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3 h-3" />
+                    <span>حذف الكل ({filteredLogs.length})</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 

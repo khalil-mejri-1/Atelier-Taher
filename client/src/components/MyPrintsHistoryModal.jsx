@@ -104,6 +104,45 @@ export default function MyPrintsHistoryModal({
     }
   };
 
+  const handleDeleteAllPrints = async () => {
+    if (deletingId || logs.length === 0) return;
+    const count = logs.length;
+    const confirmed = await confirm({
+      title: "Annuler toutes mes impressions",
+      titleAr: "تأكيد حذف جميع طباعاتي لليوم",
+      message: `Voulez-vous vraiment supprimer toutes vos ${count} impressions d'aujourd'hui ?`,
+      messageAr: `هل أنت متأكد من حذف جميع طباعاتك لليوم (${count} عملية)؟ سيتم خصم الكميات من المخزون وتعديل رصيدك.`,
+      type: "danger",
+      confirmText: `Oui, tout supprimer (${count}) / نعم، احذف الكل`,
+      cancelText: "Annuler / تراجع",
+    });
+
+    if (!confirmed) return;
+
+    setDeletingId('all');
+    try {
+      const logIds = logs.map((l) => l._id);
+      try {
+        await logsApi.bulkDeleteLogs(logIds);
+      } catch (e) {
+        for (const l of logs) {
+          await patternsApi.undoProduce(l._id).catch(() => {});
+        }
+      }
+
+      setLogs([]);
+      setTotalQuantity(0);
+      setTotalEarnings(0);
+      notify.success(`Toutes les (${count}) impressions ont été supprimées`);
+      if (onPrintsChanged) onPrintsChanged();
+    } catch (err) {
+      console.error(err);
+      notify.error(err.message || 'Échec de la suppression');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
@@ -321,14 +360,28 @@ export default function MyPrintsHistoryModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-          <span className="text-[11px] text-slate-500">
-            {logs.length} opération(s) enregistrée(s)
-          </span>
+        <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-500 font-medium">
+              {logs.length} opération(s) enregistrée(s)
+            </span>
+            {logs.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDeleteAllPrints}
+                disabled={deletingId !== null}
+                className="px-2.5 py-1 text-red-600 hover:text-white hover:bg-red-600 border border-red-200 hover:border-red-600 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                title="Supprimer toutes mes impressions / حذف الكل"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>حذف الكل ({logs.length})</span>
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="py-2 px-5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            className="py-1.5 px-4 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
           >
             Fermer / إغلاق
           </button>

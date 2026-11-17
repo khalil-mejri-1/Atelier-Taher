@@ -113,6 +113,10 @@ export const logsApi = {
   deleteLog: (logId) => apiRequest(`/logs/${logId}`, {
     method: 'DELETE',
   }),
+  bulkDeleteLogs: (logIds) => apiRequest('/logs/bulk-delete', {
+    method: 'POST',
+    body: JSON.stringify({ logIds }),
+  }),
   getStats: () => apiRequest('/logs/stats'),
   getDailyProduction: (date, workerId) => {
     const query = new URLSearchParams();

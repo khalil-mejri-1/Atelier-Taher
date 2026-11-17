@@ -76,6 +76,95 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/logs/bulk-delete : Supprimer / annuler plusieurs opérations d'un coup (حذف جماعي للعمليات)
+router.post('/bulk-delete', authenticateToken, async (req, res) => {
+  try {
+    const { logIds } = req.body;
+    if (!Array.isArray(logIds) || logIds.length === 0) {
+      return res.status(400).json({ message: 'Veuillez sélectionner au moins une opération' });
+    }
+
+    const objectIds = logIds
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+
+    const logs = await ActivityLog.find({
+      _id: { $in: objectIds },
+      undone: { $ne: 1 },
+    });
+
+    let count = 0;
+    for (const log of logs) {
+      // Seul l'administrateur ou le propriétaire peut annuler
+      if (
+        req.user.role !== 'admin' &&
+        log.user_id &&
+        req.user._id &&
+        log.user_id.toString() !== req.user._id.toString()
+      ) {
+        continue;
+      }
+
+      // Recherche souple du patron
+      let pattern = null;
+      if (log.pattern_id && mongoose.Types.ObjectId.isValid(log.pattern_id)) {
+        pattern = await Pattern.findById(log.pattern_id);
+      }
+      if (!pattern && log.pattern_sku) {
+        pattern = await Pattern.findOne({ sku: log.pattern_sku });
+      }
+      if (!pattern && log.pattern_name) {
+        pattern = await Pattern.findOne({
+          $or: [{ name_fr: log.pattern_name }, { name_ar: log.pattern_name }],
+        });
+      }
+
+      const rawQty = log.quantity_changed || 1;
+      const absQty = Math.abs(rawQty);
+
+      if (pattern) {
+        if (log.action_type === 'order_deduct') {
+          pattern.current_stock = (pattern.current_stock || 0) + absQty;
+        } else {
+          pattern.current_stock = Math.max(0, (pattern.current_stock || 0) - absQty);
+        }
+        await pattern.save();
+      }
+
+      log.undone = 1;
+      await log.save();
+
+      // Ajuster solde ouvrier si production
+      const isProduction = log.action_type === 'production_increment' || log.action_type === 'production_custom';
+      if (isProduction && log.user_id) {
+        const unitPrice = typeof log.unit_price === 'number'
+          ? log.unit_price
+          : (pattern?.price || 0);
+        const rollbackAmount = typeof log.total_price === 'number'
+          ? Math.abs(log.total_price)
+          : (absQty * unitPrice);
+
+        if (rollbackAmount > 0) {
+          await User.findByIdAndUpdate(log.user_id, {
+            $inc: { balance: -rollbackAmount },
+          });
+        }
+      }
+
+      count++;
+    }
+
+    res.json({
+      success: true,
+      message: `${count} opération(s) supprimée(s) et stocks ajustés avec succès`,
+      count,
+    });
+  } catch (err) {
+    console.error('Erreur bulk-delete logs :', err);
+    res.status(500).json({ message: 'Erreur lors de la suppression groupée des opérations' });
+  }
+});
+
 // DELETE /api/logs/:id : Supprimer / annuler une opération
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
