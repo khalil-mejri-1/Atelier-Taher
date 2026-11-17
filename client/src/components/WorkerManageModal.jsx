@@ -3,7 +3,6 @@ import {
   X, 
   Check, 
   UserPlus, 
-  KeyRound, 
   ShieldCheck, 
   Scissors, 
   AlertCircle,
@@ -25,7 +24,6 @@ export default function WorkerManageModal({
     name: '',
     username: '',
     password: '',
-    pin: '',
     role: 'worker', // 'worker' | 'admin'
     status: 'active'
   });
@@ -42,7 +40,6 @@ export default function WorkerManageModal({
         name: worker.name || '',
         username: worker.username || '',
         password: '',
-        pin: worker.pin || '1234',
         role: worker.role || 'worker',
         status: worker.status || 'active'
       });
@@ -51,7 +48,6 @@ export default function WorkerManageModal({
         name: '',
         username: '',
         password: '',
-        pin: '1234',
         role: 'worker',
         status: 'active'
       });
@@ -70,10 +66,6 @@ export default function WorkerManageModal({
     }
     if (!isEdit && (!formData.username.trim() || !formData.password.trim())) {
       setError('L’identifiant et le mot de passe sont obligatoires pour créer un compte / اسم المستخدم وكلمة المرور إلزاميان');
-      return;
-    }
-    if (formData.pin && !/^\d{4}$/.test(formData.pin.trim())) {
-      setError('Le code PIN rapide doit être composé exactement de 4 chiffres / رمز PIN يجب أن يتكون من 4 أرقام');
       return;
     }
 
@@ -219,44 +211,23 @@ export default function WorkerManageModal({
             </div>
           </div>
 
-          {/* Username & PIN */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Username */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Identifiant / اسم الدخول (Login) <span className="text-red-500">*</span> :
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  disabled={isEdit}
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s+/g, '') })}
-                  placeholder="Ex : mohamed"
-                  className="w-full px-3 py-2.5 text-xs font-sku border border-[#E2E8F0] rounded-xl focus:outline-hidden focus:border-slate-800 disabled:bg-slate-50 transition-colors"
-                />
-              </div>
-              <span className="text-[10px] text-slate-400 mt-0.5 block">Lettres minuscules sans espaces</span>
+          {/* Username */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Identifiant / اسم الدخول (Login) <span className="text-red-500">*</span> :
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                required
+                disabled={isEdit}
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s+/g, '') })}
+                placeholder="Ex : mohamed / samir"
+                className="w-full px-3 py-2.5 text-xs font-sku border border-[#E2E8F0] rounded-xl focus:outline-hidden focus:border-slate-800 disabled:bg-slate-50 transition-colors"
+              />
             </div>
-
-            {/* Quick PIN */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Code PIN rapide / رمز PIN (4 chiffres) :
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  maxLength={4}
-                  value={formData.pin}
-                  onChange={(e) => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, '') })}
-                  placeholder="1234"
-                  className="w-full px-3 py-2.5 text-xs font-sku text-center tracking-widest font-bold border border-[#E2E8F0] rounded-xl focus:outline-hidden focus:border-slate-800 bg-slate-50/50"
-                />
-              </div>
-              <span className="text-[10px] text-slate-400 mt-0.5 block">Pour connexion tactile rapide</span>
-            </div>
+            <span className="text-[10px] text-slate-400 mt-0.5 block">Lettres minuscules sans espaces (أحرف إنجليزية صغيرة دون مسافات)</span>
           </div>
 
           {/* Password */}

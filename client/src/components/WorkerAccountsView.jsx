@@ -9,7 +9,6 @@ import {
   Users,
   Search,
   Filter,
-  KeyRound,
   Coins
 } from 'lucide-react';
 import { workersApi } from '../api';
@@ -266,13 +265,6 @@ export default function WorkerAccountsView() {
                           : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                       }`}>
                         {isAdmin ? 'Administrateur (أدمن)' : 'Opérateur (عامل)'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-slate-400">Code PIN rapide :</span>
-                      <span className="font-sku font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">
-                        {worker.pin || 'Non défini'}
                       </span>
                     </div>
 

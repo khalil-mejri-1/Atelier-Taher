@@ -4,18 +4,18 @@ import {
   Scissors, 
   ShieldCheck, 
   LogIn, 
-  KeyRound, 
   Sparkles, 
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function LoginView() {
   const { login, demoAccounts } = useAuth();
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin123');
-  const [pin, setPin] = useState('');
-  const [usePin, setUsePin] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -25,13 +25,9 @@ export default function LoginView() {
     setLoading(true);
 
     try {
-      if (usePin) {
-        await login({ username, pin });
-      } else {
-        await login({ username, password });
-      }
+      await login({ username, password });
     } catch (err) {
-      setError(err.message || 'Identifiants de connexion invalides');
+      setError(err.message || 'Identifiants de connexion invalides / بيانات الدخول غير صحيحة');
     } finally {
       setLoading(false);
     }
@@ -44,13 +40,9 @@ export default function LoginView() {
     try {
       if (acc.password) {
         await login({ username: acc.username, password: acc.password });
-      } else if (acc.pin) {
-        setUsePin(true);
-        setPin(acc.pin);
-        await login({ username: acc.username, pin: acc.pin });
       } else {
         setPassword('');
-        setError('Veuillez saisir votre mot de passe pour ce compte');
+        setError('Veuillez saisir le mot de passe de ce compte / يرجى إدخال كلمة المرور');
       }
     } catch (err) {
       setError(err.message || 'Échec de la connexion');
@@ -80,61 +72,56 @@ export default function LoginView() {
         </div>
 
         {/* Quick 1-Tap Demo Logins Pill */}
-        <div className="mt-6 bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-xs">
-          <div className="text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Connexion démo rapide en un clic :</span>
-          </div>
+        {demoAccounts && demoAccounts.length > 0 && (
+          <div className="mt-6 bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-xs">
+            <div className="text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>Connexion rapide en un clic :</span>
+            </div>
 
-          <div className="space-y-1.5">
-            {demoAccounts.map((acc) => {
-              const isAdmin = acc.role === 'admin';
-              return (
-                <button
-                  key={acc.username}
-                  type="button"
-                  onClick={() => handleQuickLogin(acc)}
-                  className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-transform active:scale-98 border ${
-                    isAdmin 
-                      ? 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-[#0F172A]' 
-                      : 'bg-emerald-50/60 hover:bg-emerald-50 border-emerald-200/80 text-emerald-900'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
-                      isAdmin ? 'bg-[#0F172A] text-white' : 'bg-emerald-600 text-white'
-                    }`}>
-                      {isAdmin ? <ShieldCheck className="w-4 h-4" /> : <Scissors className="w-4 h-4" />}
+            <div className="space-y-1.5">
+              {demoAccounts.map((acc) => {
+                const isAdmin = acc.role === 'admin';
+                return (
+                  <button
+                    key={acc.username}
+                    type="button"
+                    onClick={() => handleQuickLogin(acc)}
+                    className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-transform active:scale-98 border cursor-pointer ${
+                      isAdmin 
+                        ? 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-[#0F172A]' 
+                        : 'bg-emerald-50/60 hover:bg-emerald-50 border-emerald-200/80 text-emerald-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                        isAdmin ? 'bg-[#0F172A] text-white' : 'bg-emerald-600 text-white'
+                      }`}>
+                        {isAdmin ? <ShieldCheck className="w-4 h-4" /> : <Scissors className="w-4 h-4" />}
+                      </div>
+                      <div className="text-left">
+                        <div className="font-bold text-[12px]">{acc.name}</div>
+                        <div className="text-[10px] text-slate-500 font-sku">@{acc.username} • {acc.roleLabel}</div>
+                      </div>
                     </div>
-                    <div className="text-left">
-                      <div className="font-bold text-[12px]">{acc.name}</div>
-                      <div className="text-[10px] text-slate-500 font-sku">@{acc.username} • {acc.roleLabel}</div>
-                    </div>
-                  </div>
 
-                  <span className="text-[11px] font-semibold flex items-center gap-1 opacity-80">
-                    <span>Entrer</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </span>
-                </button>
-              );
-            })}
+                    <span className="text-[11px] font-semibold flex items-center gap-1 opacity-80">
+                      <span>Entrer</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Standard Manual Login Card */}
         <div className="mt-4 bg-white py-6 px-6 shadow-xs rounded-2xl border border-[#E2E8F0]">
           
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-            <span className="text-xs font-bold text-slate-700">Connexion classique</span>
-            <button
-              type="button"
-              onClick={() => setUsePin(!usePin)}
-              className="text-xs text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1"
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>{usePin ? 'Utiliser mot de passe' : 'Utiliser code PIN'}</span>
-            </button>
+          <div className="pb-3 border-b border-slate-100 mb-4">
+            <h2 className="text-sm font-bold text-[#0F172A]">Connexion au système / تسجيل الدخول</h2>
+            <p className="text-[11px] text-slate-400">Entrez votre identifiant et votre mot de passe</p>
           </div>
 
           {error && (
@@ -147,56 +134,49 @@ export default function LoginView() {
           <form onSubmit={handleSubmit} className="space-y-4 text-left">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Identifiant :
+                Identifiant / اسم المستخدم (Login) :
               </label>
               <input
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="admin ou worker"
+                placeholder="Ex : admin ou nom d'utilisateur"
                 className="w-full px-3.5 py-2.5 text-xs font-sku border border-[#E2E8F0] rounded-xl focus:outline-hidden focus:border-slate-800"
               />
             </div>
 
-            {usePin ? (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Code PIN rapide (4 chiffres) :
-                </label>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Mot de passe / كلمة المرور :
+              </label>
+              <div className="relative">
                 <input
-                  type="password"
-                  maxLength={4}
-                  required
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="1111 (admin) ou 2222 (worker)"
-                  className="w-full px-3.5 py-2.5 text-center text-lg font-bold tracking-widest font-sku border border-[#E2E8F0] rounded-xl focus:outline-hidden focus:border-slate-800"
-                />
-              </div>
-            ) : (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Mot de passe :
-                </label>
-                <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 text-xs border border-[#E2E8F0] rounded-xl focus:outline-hidden focus:border-slate-800"
+                  className="w-full pl-3.5 pr-10 py-2.5 text-xs border border-[#E2E8F0] rounded-xl focus:outline-hidden focus:border-slate-800"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  title={showPassword ? 'Masquer' : 'Afficher'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-            )}
+            </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-11 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-xs"
+              className="w-full h-11 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-xs cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
-              <span>{loading ? 'Vérification...' : 'Se connecter'}</span>
+              <span>{loading ? 'Vérification...' : 'Se connecter / تسجيل الدخول'}</span>
             </button>
           </form>
 
