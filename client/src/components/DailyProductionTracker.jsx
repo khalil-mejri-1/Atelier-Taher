@@ -14,9 +14,10 @@ import {
   Puzzle,
   Filter,
   CheckCircle2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Trash2
 } from 'lucide-react';
-import { logsApi } from '../api';
+import { logsApi, patternsApi } from '../api';
 
 export default function DailyProductionTracker({ onPreviewImage }) {
   // Format today's date YYYY-MM-DD
@@ -110,6 +111,25 @@ export default function DailyProductionTracker({ onPreviewImage }) {
     const wName = (log.user_name || '').toLowerCase();
     return pName.includes(term) || pSku.includes(term) || wName.includes(term);
   });
+
+  // Delete/Cancel a production log
+  const handleDeleteLog = async (log) => {
+    const patternName = log.pattern_name || log.pattern_id?.name_fr || 'ce patron';
+    const workerName = log.user_name || 'cet ouvrier';
+    const qty = log.quantity_changed || 1;
+    const amount = typeof log.total_price === 'number' ? log.total_price : 0;
+
+    const confirmMsg = `Voulez-vous vraiment annuler et supprimer cette impression ?\n\n• Modèle : ${patternName}\n• Ouvrier : ${workerName}\n• Quantité : -${qty} pcs (déduite du stock)\n• Montant : -${amount.toFixed(3)} DT (déduit du solde)\n\nCette action restaurera le stock et déduira les gains.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await patternsApi.undoProduce(log._id);
+      await loadDailyReport();
+    } catch (err) {
+      alert(err.message || 'Erreur lors de la suppression de l’impression');
+    }
+  };
 
   return (
     <div className="space-y-3.5 text-left">
@@ -361,8 +381,9 @@ export default function DailyProductionTracker({ onPreviewImage }) {
                   <th className="py-3 px-4 min-w-[170px]">Ouvrier</th>
                   <th className="py-3 px-3 text-center w-24">Quantité</th>
                   <th className="py-3 px-3 text-center w-28">Tarif / Pièce</th>
-                  <th className="py-3 px-4 text-center min-w-[130px]">Sexe / Montant Total</th>
+                  <th className="py-3 px-4 text-center min-w-[130px]">Montant Total (Gains)</th>
                   <th className="py-3 px-4 text-center w-28">Heure d'ajout</th>
+                  <th className="py-3 px-3 text-center w-20">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -386,7 +407,26 @@ export default function DailyProductionTracker({ onPreviewImage }) {
 
                   const hasParts = patternData.has_parts || (Array.isArray(patternData.parts) && patternData.parts.length > 0);
 
-                  return (
+                  // Delete/Cancel a production log
+  const handleDeleteLog = async (log) => {
+    const patternName = log.pattern_name || log.pattern_id?.name_fr || 'ce patron';
+    const workerName = log.user_name || 'cet ouvrier';
+    const qty = log.quantity_changed || 1;
+    const amount = typeof log.total_price === 'number' ? log.total_price : 0;
+
+    const confirmMsg = `Voulez-vous vraiment annuler et supprimer cette impression ?\n\n• Modèle : ${patternName}\n• Ouvrier : ${workerName}\n• Quantité : -${qty} pcs (déduite du stock)\n• Montant : -${amount.toFixed(3)} DT (déduit du solde)\n\nCette action restaurera le stock et déduira les gains.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await patternsApi.undoProduce(log._id);
+      await loadDailyReport();
+    } catch (err) {
+      alert(err.message || 'Erreur lors de la suppression de l’impression');
+    }
+  };
+
+  return (
                     <tr 
                       key={log._id} 
                       className="hover:bg-slate-50/80 transition-colors group"
@@ -491,6 +531,18 @@ export default function DailyProductionTracker({ onPreviewImage }) {
                           <span>{timeStr}</span>
                         </span>
                       </td>
+
+                      {/* 8. ACTION / SUPPRIMER */}
+                      <td className="py-3 px-3 text-center align-middle whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLog(log)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all active:scale-90 cursor-pointer"
+                          title="Supprimer cette impression (حذف وإلغاء هذه العملية)"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500 hover:text-red-700" />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -514,6 +566,7 @@ export default function DailyProductionTracker({ onPreviewImage }) {
                     }, 0).toFixed(3)} DT
                   </td>
                   <td className="py-3 px-4 text-center text-slate-400">-</td>
+                  <td className="py-3 px-3 text-center text-slate-400">-</td>
                 </tr>
               </tfoot>
             </table>

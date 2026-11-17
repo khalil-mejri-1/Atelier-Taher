@@ -11,7 +11,8 @@ import {
   Table,
   LayoutGrid,
   Coins,
-  Puzzle
+  Puzzle,
+  History
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import { socket } from '../socket';
@@ -19,6 +20,7 @@ import UndoToast from '../components/UndoToast';
 import ProduceCustomModal from '../components/ProduceCustomModal';
 import ProducePartsModal from '../components/ProducePartsModal';
 import ImagePreviewModal from '../components/ImagePreviewModal';
+import MyPrintsHistoryModal from '../components/MyPrintsHistoryModal';
 
 export default function WorkerView() {
   const [patterns, setPatterns] = useState([]);
@@ -44,6 +46,9 @@ export default function WorkerView() {
   const [partsModalOpen, setPartsModalOpen] = useState(false);
   const [partsModalPattern, setPartsModalPattern] = useState(null);
   const [myProgress, setMyProgress] = useState([]);
+
+  // My prints history modal state
+  const [printsModalOpen, setPrintsModalOpen] = useState(false);
 
   // Success alert indicator
   const [flashMessage, setFlashMessage] = useState('');
@@ -287,6 +292,19 @@ export default function WorkerView() {
                   </div>
                 </div>
               </div>
+
+              <div className="h-7 w-px bg-slate-200 hidden sm:block" />
+
+              {/* View/Delete My Prints History Button */}
+              <button
+                type="button"
+                onClick={() => setPrintsModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 hover:border-slate-400 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                title="Voir la liste de mes impressions et supprimer les erreurs"
+              >
+                <History className="w-4 h-4 text-emerald-600" />
+                <span>Mes impressions ({todayCount})</span>
+              </button>
             </div>
           </div>
 
@@ -797,13 +815,31 @@ export default function WorkerView() {
           </div>
         </div>
 
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="px-3 py-1.5 bg-[#0F172A] text-white rounded-xl text-xs font-bold active:scale-95 transition-transform"
-        >
-          Haut de page ↑
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPrintsModalOpen(true)}
+            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold active:scale-95 transition-transform flex items-center gap-1 cursor-pointer"
+          >
+            <History className="w-3.5 h-3.5 text-emerald-600" />
+            <span>سجل الطباعات</span>
+          </button>
+
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="px-3 py-1.5 bg-[#0F172A] text-white rounded-xl text-xs font-bold active:scale-95 transition-transform"
+          >
+            Haut ↑
+          </button>
+        </div>
       </nav>
+
+      {/* My Prints History Modal (View & Delete Prints) */}
+      <MyPrintsHistoryModal
+        isOpen={printsModalOpen}
+        onClose={() => setPrintsModalOpen(false)}
+        onPrintsChanged={loadData}
+      />
 
       {/* Image Preview Lightbox */}
       <ImagePreviewModal

@@ -47,6 +47,49 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/logs/my-today : Impressions enregistrées aujourd'hui par l'utilisateur connecté
+router.get('/my-today', authenticateToken, async (req, res) => {
+  try {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const matchFilter = {
+      action_type: { $in: ['production_increment', 'production_custom'] },
+      user_id: req.user._id,
+      undone: 0,
+      created_at: { $gte: startOfDay, $lte: endOfDay },
+    };
+
+    const logs = await ActivityLog.find(matchFilter)
+      .populate('pattern_id', 'image_url price name_fr name_ar sku category has_parts parts')
+      .sort({ created_at: -1 });
+
+    let totalQuantity = 0;
+    let totalEarnings = 0;
+
+    logs.forEach((log) => {
+      const qty = log.quantity_changed || 0;
+      const amount = typeof log.total_price === 'number'
+        ? log.total_price
+        : (qty * (log.unit_price || 0));
+
+      totalQuantity += qty;
+      totalEarnings += amount;
+    });
+
+    res.json({
+      logs,
+      totalQuantity,
+      totalEarnings,
+    });
+  } catch (err) {
+    console.error('Erreur my-today logs :', err);
+    res.status(500).json({ message: 'Erreur lors de la récupération de vos impressions' });
+  }
+});
+
 // GET /api/logs/daily-production : Suivi journalier détaillé de la production des ouvriers et calcul des gains
 router.get('/daily-production', authenticateToken, async (req, res) => {
   try {

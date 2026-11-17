@@ -421,6 +421,11 @@ export function createPatternsRouter(io) {
         return res.status(400).json({ message: 'Seules les opérations de production peuvent être annulées' });
       }
 
+      // Seul l'administrateur ou l'ouvrier propriétaire de l'opération peut l'annuler
+      if (req.user.role !== 'admin' && log.user_id && log.user_id.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Vous ne pouvez annuler que vos propres enregistrements' });
+      }
+
       const pattern = await Pattern.findById(log.pattern_id);
       if (!pattern) {
         return res.status(404).json({ message: 'Le patron associé n’existe plus' });

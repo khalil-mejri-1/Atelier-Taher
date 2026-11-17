@@ -113,6 +113,7 @@ export const logsApi = {
     const queryString = query.toString() ? `?${query.toString()}` : '';
     return apiRequest(`/logs/daily-production${queryString}`);
   },
+  getMyTodayLogs: () => apiRequest('/logs/my-today'),
 };
 
 // Workers API
