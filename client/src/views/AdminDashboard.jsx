@@ -7,7 +7,6 @@ import {
   CheckSquare, 
   Square, 
   Layers, 
-  History, 
   Users, 
   AlertTriangle, 
   CheckCircle2,
@@ -23,7 +22,6 @@ import {
 } from 'lucide-react';
 import { patternsApi, logsApi } from '../api';
 import KpiCards from '../components/KpiCards';
-import ActivityLogFeed from '../components/ActivityLogFeed';
 import WorkerAccountsView from '../components/WorkerAccountsView';
 import DailyProductionTracker from '../components/DailyProductionTracker';
 import OrderFulfillModal from '../components/OrderFulfillModal';
@@ -271,16 +269,6 @@ export default function AdminDashboard() {
             >
               👥 Utilisateurs
             </button>
-            <button
-              onClick={() => setActiveTab('logs')}
-              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all ${
-                activeTab === 'logs'
-                  ? 'bg-[#0F172A] text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-[#E2E8F0]'
-              }`}
-            >
-              📋 Journal ({logs.length})
-            </button>
           </div>
 
           {activeTab === 'inventory' && (
@@ -348,18 +336,6 @@ export default function AdminDashboard() {
             >
               <Users className="w-4 h-4" />
               <span>Comptes & Utilisateurs</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('logs')}
-              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
-                activeTab === 'logs'
-                  ? 'border-[#0F172A] text-[#0F172A]'
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <History className="w-4 h-4" />
-              <span>Journal d'audit ({logs.length})</span>
             </button>
           </div>
 
@@ -939,12 +915,7 @@ export default function AdminDashboard() {
           <DailyProductionTracker onPreviewImage={setPreviewImage} />
         )}
 
-        {/* Tab 3: Activity Logs Audit Trail */}
-        {activeTab === 'logs' && (
-          <ActivityLogFeed logs={logs} />
-        )}
-
-        {/* Tab 4: Worker Account Management */}
+        {/* Tab 3: Worker Account Management */}
         {activeTab === 'workers' && (
           <WorkerAccountsView />
         )}
@@ -1007,15 +978,15 @@ export default function AdminDashboard() {
         </button>
 
         <button
-          onClick={() => setActiveTab('logs')}
+          onClick={() => setActiveTab('daily')}
           className={`flex flex-col items-center justify-center min-h-[48px] px-3 py-1 rounded-xl transition-colors ${
-            activeTab === 'logs'
-              ? 'text-[#0F172A] font-bold'
+            activeTab === 'daily'
+              ? 'text-emerald-700 font-bold'
               : 'text-slate-400 font-medium hover:text-slate-600'
           }`}
         >
-          <History className={`w-5 h-5 mb-0.5 ${activeTab === 'logs' ? 'text-[#0F172A]' : 'text-slate-400'}`} />
-          <span className="text-[10px]">Journal</span>
+          <Calendar className={`w-5 h-5 mb-0.5 ${activeTab === 'daily' ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <span className="text-[10px]">Production</span>
         </button>
 
         <button
