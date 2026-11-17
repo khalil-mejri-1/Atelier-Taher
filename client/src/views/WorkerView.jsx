@@ -54,9 +54,11 @@ export default function WorkerView() {
   // Success alert indicator
   const [flashMessage, setFlashMessage] = useState('');
 
-  const loadData = async () => {
+  const loadData = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) {
+        setLoading(true);
+      }
       const [patRes, catRes, statsRes, dailyRes, progRes] = await Promise.all([
         patternsApi.getAll({
           category: selectedCategory === 'all' ? undefined : selectedCategory,
@@ -75,21 +77,24 @@ export default function WorkerView() {
     } catch (err) {
       console.error('Erreur chargement patrons opérateur :', err);
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(false);
   }, [selectedCategory, search]);
 
-  // Synchronisation périodique automatique des patrons et du stock (toutes les 10s)
+  // Synchronisation silencieuse en arrière-plan sans rechargement visuel de la page
   useEffect(() => {
     const interval = setInterval(() => {
-      loadData();
+      if (document.hidden) return;
+      loadData(true);
     }, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedCategory, search]);
 
   // Helper to get worker's printed parts for a pattern
   const getPatternInProgressParts = (patternId) => {

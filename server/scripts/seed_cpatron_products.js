@@ -373,3 +373,4 @@ seed().catch((err) => {
   console.error('❌ Erreur lors de l\'insertion :', err);
   process.exit(1);
 });
+

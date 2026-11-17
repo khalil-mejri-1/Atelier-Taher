@@ -68,9 +68,11 @@ export default function AdminDashboard() {
   // Toast / feedback message
   const [feedback, setFeedback] = useState('');
 
-  const loadData = async () => {
+  const loadData = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) {
+        setLoading(true);
+      }
       const [patRes, catRes, statsRes, logsRes] = await Promise.all([
         patternsApi.getAll({
           search: search.trim() || undefined,
@@ -89,21 +91,24 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Erreur chargement dashboard admin :', err);
     } finally {
-      setLoading(false);
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(false);
   }, [search, selectedCategory, filterLowStockOnly]);
 
-  // Synchronisation périodique automatique des données de production et du stock (toutes les 10s)
+  // Synchronisation silencieuse en arrière-plan sans rechargement visuel de la page
   useEffect(() => {
     const interval = setInterval(() => {
-      loadData();
+      if (document.hidden) return;
+      loadData(true);
     }, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [search, selectedCategory, filterLowStockOnly]);
 
   // Selection toggle
   const toggleSelectPattern = (id) => {
