@@ -83,38 +83,41 @@ export default function ProducePartsModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${
-              completed 
-                ? 'bg-emerald-600 text-white border-emerald-700' 
-                : 'bg-indigo-50 text-indigo-700 border-indigo-200/60'
-            }`}>
-              {completed ? <CheckCheck className="w-5 h-5 text-white stroke-[2.5]" /> : <Layers className="w-5 h-5 text-indigo-600" />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-sm sm:text-base text-slate-900">
-                  Impression des parties du patron
-                </h3>
-                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                  completed ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
-                }`}>
-                  {totalParts} parties / {totalParts} أقسام
-                </span>
+        <div className="p-3.5 sm:p-5 border-b border-slate-100 bg-white shrink-0">
+          <div className="flex items-start justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center border shrink-0 ${
+                completed 
+                  ? 'bg-emerald-600 text-white border-emerald-700' 
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-200/60'
+              }`}>
+                {completed ? <CheckCheck className="w-5 h-5 text-white stroke-[2.5]" /> : <Layers className="w-5 h-5 text-indigo-600" />}
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                تأكيد إنجاز وطباعة أقسام الباترون لاحتساب الإنتاج
-              </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-extrabold text-sm sm:text-base text-slate-900 leading-tight">
+                    Impression des parties
+                  </h3>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                    completed ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
+                  }`}>
+                    {totalParts} parties / {totalParts} أقسام
+                  </span>
+                </div>
+                <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 leading-tight truncate sm:whitespace-normal" dir="rtl">
+                  تأكيد إنجاز وطباعة أقسام الباترون لاحتساب الإنتاج
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer shrink-0 -mr-1 -mt-1"
+              aria-label="Fermer"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Modal Content */}
