@@ -1320,11 +1320,7 @@ export default function AdminDashboard() {
         isOpen={taskAssignModalOpen}
         onClose={() => setTaskAssignModalOpen(false)}
         onTaskCreated={() => {
-          if (activeTab === 'tasks') {
-            // Rechargement déjà actif
-          } else {
-            notify.success('تم إرسال المهمة بنجاح ! يمكنك متابعتها في قسم "المهام المرسلة"');
-          }
+          // La notification de succès est déjà gérée de manière unique dans TaskAssignModal
         }}
       />
       <OrderFulfillModal
