@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BellRing, 
   Calendar, 
@@ -17,15 +17,25 @@ import {
 export default function WorkerTaskPopupModal({ task, onAcknowledge, onPreviewImage }) {
   const [loading, setLoading] = useState(false);
 
+  // Réinitialiser systématiquement l'état de chargement dès qu'une tâche est affichée
+  useEffect(() => {
+    setLoading(false);
+  }, [task?._id, task?.id]);
+
   if (!task) return null;
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (loading) return;
     setLoading(true);
     try {
       await onAcknowledge(task._id || task.id);
     } catch (err) {
-      console.error(err);
+      console.error('Erreur confirmation tâche :', err);
+    } finally {
       setLoading(false);
     }
   };
@@ -216,8 +226,8 @@ export default function WorkerTaskPopupModal({ task, onAcknowledge, onPreviewIma
           <button
             type="button"
             disabled={loading}
-            onClick={handleConfirm}
-            className="w-full py-3.5 px-4 bg-linear-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 active:scale-[0.98] text-white rounded-2xl font-black text-sm sm:text-base shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2.5 transition-all cursor-pointer disabled:opacity-50"
+            onClick={(e) => handleConfirm(e)}
+            className="w-full py-3.5 px-4 bg-linear-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 active:scale-[0.98] text-white rounded-2xl font-black text-sm sm:text-base shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>

@@ -1121,11 +1121,14 @@ export default function WorkerView() {
       </nav>
 
       {/* Modal popup obligatoire et centrée pour l'ouvrier dès qu'une tâche est reçue */}
-      <WorkerTaskPopupModal
-        task={pendingTaskPopup}
-        onAcknowledge={handleAcknowledgeTask}
-        onPreviewImage={(url, title) => setPreviewImage({ url, title, sku: '' })}
-      />
+      {pendingTaskPopup && (
+        <WorkerTaskPopupModal
+          key={pendingTaskPopup._id || pendingTaskPopup.id}
+          task={pendingTaskPopup}
+          onAcknowledge={handleAcknowledgeTask}
+          onPreviewImage={(url, title) => setPreviewImage({ url, title, sku: '' })}
+        />
+      )}
 
       {/* Modal d'historique de toutes les tâches de l'ouvrier */}
       <WorkerTasksHistoryModal
