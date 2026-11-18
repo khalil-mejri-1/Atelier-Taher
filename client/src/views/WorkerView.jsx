@@ -16,12 +16,15 @@ import {
   Loader2,
   X
 } from 'lucide-react';
-import { patternsApi, logsApi } from '../api';
+import { patternsApi, logsApi, tasksApi } from '../api';
 import UndoToast from '../components/UndoToast';
 import ProduceCustomModal from '../components/ProduceCustomModal';
 import ProducePartsModal from '../components/ProducePartsModal';
 import ImagePreviewModal from '../components/ImagePreviewModal';
 import MyPrintsHistoryModal from '../components/MyPrintsHistoryModal';
+import WorkerTaskPopupModal from '../components/WorkerTaskPopupModal';
+import WorkerTasksHistoryModal from '../components/WorkerTasksHistoryModal';
+import { playNotificationSound } from '../utils/sound';
 import { useDialog } from '../context/DialogContext';
 
 export default function WorkerView() {
@@ -66,6 +69,11 @@ export default function WorkerView() {
 
   // My prints history modal state
   const [printsModalOpen, setPrintsModalOpen] = useState(false);
+
+  // Tâches assignées par l'administrateur
+  const [pendingTaskPopup, setPendingTaskPopup] = useState(null);
+  const [tasksHistoryModalOpen, setTasksHistoryModalOpen] = useState(false);
+  const [myTasksCount, setMyTasksCount] = useState(0);
 
   // Success alert indicator
   const [flashMessage, setFlashMessage] = useState('');
@@ -138,6 +146,78 @@ export default function WorkerView() {
   useEffect(() => {
     loadWorkerMeta();
   }, []);
+
+  // Vérification instantanée et continue des tâches en attente assignées à l'ouvrier
+  const checkPendingTask = async () => {
+    try {
+      const res = await tasksApi.getPendingPopup();
+      if (res && res.hasPending && res.task) {
+        setPendingTaskPopup((prev) => {
+          // Si c'est une nouvelle tâche non encore affichée, émettre un bip sonore
+          if (!prev || (prev._id || prev.id) !== (res.task._id || res.task.id)) {
+            playNotificationSound();
+          }
+          return res.task;
+        });
+      } else {
+        setPendingTaskPopup(null);
+      }
+    } catch (err) {
+      // Ignorer silencieusement en arrière-plan
+    }
+  };
+
+  const loadMyTasksCount = async () => {
+    try {
+      const res = await tasksApi.getAll();
+      setMyTasksCount(res.total || 0);
+    } catch (err) {}
+  };
+
+  // Chargement initial des tâches de l'ouvrier
+  useEffect(() => {
+    checkPendingTask();
+    loadMyTasksCount();
+  }, []);
+
+  // Détection en temps réel (toutes les 3.5 secondes) des nouvelles tâches envoyées sans rechargement
+  useEffect(() => {
+    const taskInterval = setInterval(() => {
+      checkPendingTask();
+    }, 3500);
+
+    const handleFocusOrVisible = () => {
+      if (!document.hidden) {
+        checkPendingTask();
+        loadMyTasksCount();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
+    window.addEventListener('focus', handleFocusOrVisible);
+
+    return () => {
+      clearInterval(taskInterval);
+      document.removeEventListener('visibilitychange', handleFocusOrVisible);
+      window.removeEventListener('focus', handleFocusOrVisible);
+    };
+  }, []);
+
+  // Gestion du clic sur "اطلعت عليها"
+  const handleAcknowledgeTask = async (taskId) => {
+    try {
+      await tasksApi.acknowledge(taskId);
+      setPendingTaskPopup(null);
+      notify.success('تم تأكيد الاطلاع وإشعار الإدارة بنجاح / Accusé de réception envoyé à l’administrateur');
+      await loadMyTasksCount();
+      // Vérifier s'il reste une autre tâche en file d'attente
+      setTimeout(() => {
+        checkPendingTask();
+      }, 400);
+    } catch (err) {
+      notify.error(err.message || 'Erreur lors de la validation');
+    }
+  };
 
   useEffect(() => {
     fetchPatternsData(false);
@@ -416,11 +496,22 @@ export default function WorkerView() {
                 <button
                   type="button"
                   onClick={() => setPrintsModalOpen(true)}
-                  className="col-span-2 sm:col-auto flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 hover:border-slate-400 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer w-full sm:w-auto"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 hover:border-slate-400 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer w-full sm:w-auto"
                   title="Voir la liste de mes impressions et supprimer les erreurs"
                 >
                   <History className="w-4 h-4 text-emerald-600" />
                   <span>Mes impressions ({todayCount})</span>
+                </button>
+
+                {/* View My Assigned Tasks Button */}
+                <button
+                  type="button"
+                  onClick={() => setTasksHistoryModalOpen(true)}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer w-full sm:w-auto"
+                  title="Voir la liste des tâches et modèles assignés par l'administration"
+                >
+                  <Layers className="w-4 h-4 text-amber-700" />
+                  <span>مهامي المرسلة ({myTasksCount})</span>
                 </button>
               </div>
             </div>
@@ -1003,6 +1094,15 @@ export default function WorkerView() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
+            onClick={() => setTasksHistoryModalOpen(true)}
+            className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-bold active:scale-95 transition-transform flex items-center gap-1 cursor-pointer border border-amber-200"
+          >
+            <Layers className="w-3.5 h-3.5 text-amber-700" />
+            <span>مهامي ({myTasksCount})</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setPrintsModalOpen(true)}
             className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold active:scale-95 transition-transform flex items-center gap-1 cursor-pointer border border-slate-200"
           >
@@ -1019,6 +1119,20 @@ export default function WorkerView() {
           </button>
         </div>
       </nav>
+
+      {/* Modal popup obligatoire et centrée pour l'ouvrier dès qu'une tâche est reçue */}
+      <WorkerTaskPopupModal
+        task={pendingTaskPopup}
+        onAcknowledge={handleAcknowledgeTask}
+        onPreviewImage={(url, title) => setPreviewImage({ url, title, sku: '' })}
+      />
+
+      {/* Modal d'historique de toutes les tâches de l'ouvrier */}
+      <WorkerTasksHistoryModal
+        isOpen={tasksHistoryModalOpen}
+        onClose={() => setTasksHistoryModalOpen(false)}
+        onPreviewImage={(url, title) => setPreviewImage({ url, title, sku: '' })}
+      />
 
       {/* My Prints History Modal (View & Delete Prints) */}
       <MyPrintsHistoryModal

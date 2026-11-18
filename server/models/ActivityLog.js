@@ -18,6 +18,8 @@ const activityLogSchema = new mongoose.Schema(
         'pattern_delete',
         'user_create',
         'user_status',
+        'task_assign',
+        'task_acknowledge',
       ],
     },
     user_id: {

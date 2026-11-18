@@ -20,13 +20,18 @@ import {
   Puzzle,
   History,
   Loader2,
-  X
+  X,
+  Send,
+  BellRing
 } from 'lucide-react';
-import { patternsApi, logsApi } from '../api';
+import { patternsApi, logsApi, tasksApi } from '../api';
+import { playNotificationSound } from '../utils/sound';
 import KpiCards from '../components/KpiCards';
 import OperationsHistoryModal from '../components/OperationsHistoryModal';
 import WorkerAccountsView from '../components/WorkerAccountsView';
 import DailyProductionTracker from '../components/DailyProductionTracker';
+import TasksManagementSection from '../components/TasksManagementSection';
+import TaskAssignModal from '../components/TaskAssignModal';
 import OrderFulfillModal from '../components/OrderFulfillModal';
 import PatternEditModal from '../components/PatternEditModal';
 import BulkActionModal from '../components/BulkActionModal';
@@ -84,6 +89,11 @@ export default function AdminDashboard() {
   const [operationsPattern, setOperationsPattern] = useState(null);
   const [operationsFilter, setOperationsFilter] = useState('all');
   const [operationsTodayOnly, setOperationsTodayOnly] = useState(false);
+
+  // Gestion des tâches envoyées & Notifications d'accusé de réception
+  const [taskAssignModalOpen, setTaskAssignModalOpen] = useState(false);
+  const [adminNewAcksCount, setAdminNewAcksCount] = useState(0);
+  const [latestAckToast, setLatestAckToast] = useState(null);
 
   const handleOpenOperations = (filter = 'all', todayOnly = false, pattern = null) => {
     setOperationsFilter(filter);
@@ -169,6 +179,55 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchPatternsData(false);
   }, [debouncedSearch, selectedCategory, filterLowStockOnly]);
+
+  // Vérification continue (toutes les 4 secondes) des accusés de réception ouvriers pour notifier l'admin
+  const checkAdminNotifications = async () => {
+    try {
+      const res = await tasksApi.getAdminNotifications();
+      if (res && res.count > 0 && Array.isArray(res.notifications)) {
+        setAdminNewAcksCount(res.count);
+        const newest = res.notifications[0];
+        setLatestAckToast((prev) => {
+          if (!prev || (prev._id || prev.id) !== (newest._id || newest.id)) {
+            playNotificationSound();
+            return newest;
+          }
+          return prev;
+        });
+      } else {
+        setAdminNewAcksCount(0);
+      }
+    } catch (err) {
+      // Silencieux en tâche de fond
+    }
+  };
+
+  const clearAdminNotifications = async () => {
+    try {
+      await tasksApi.markAdminNotified();
+      setAdminNewAcksCount(0);
+      setLatestAckToast(null);
+    } catch (err) {}
+  };
+
+  useEffect(() => {
+    checkAdminNotifications();
+    const notifInterval = setInterval(() => {
+      checkAdminNotifications();
+    }, 4000);
+
+    const handleFocus = () => {
+      if (!document.hidden) checkAdminNotifications();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      clearInterval(notifInterval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, []);
 
   // Synchronisation silencieuse en arrière-plan toutes les 10s
   useEffect(() => {
@@ -378,6 +437,54 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* Real-time Notification Banner for Worker Acknowledgments */}
+        {latestAckToast && (
+          <div className="mb-4 p-3.5 sm:p-4 bg-slate-900 text-white rounded-2xl shadow-xl border-2 border-emerald-400 flex items-start sm:items-center justify-between gap-3 animate-in slide-in-from-top duration-300">
+            <div className="flex items-start sm:items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <BellRing className="w-5 h-5 animate-bounce" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 tracking-wider">
+                    إشعار فوري من الورشة • Notification temps réel
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {new Date(latestAckToast.acknowledged_at || Date.now()).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <div className="text-xs sm:text-sm font-bold text-white mt-0.5 truncate">
+                  قام العامل <span className="text-amber-300">"{latestAckToast.worker_name}"</span> بالاطلاع على المهمة المرسلة إليه للتو !
+                </div>
+                {latestAckToast.patterns?.length > 0 && (
+                  <div className="text-[11px] text-slate-300 truncate">
+                    النماذج : {latestAckToast.patterns.map((p) => p.name_ar || p.name_fr || p.sku).join('، ')}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  setActiveTab('tasks');
+                  clearAdminNotifications();
+                }}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                عرض المهمة
+              </button>
+              <button
+                onClick={clearAdminNotifications}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                title="Ignorer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Mobile View Header & Action Bar */}
         <div className="sm:hidden mb-4 space-y-2">
           {/* Mobile Tab Switcher Pills */}
@@ -401,6 +508,24 @@ export default function AdminDashboard() {
               }`}
             >
               📅 Suivi Journalier Ouvriers
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('tasks');
+                clearAdminNotifications();
+              }}
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                activeTab === 'tasks'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-[#E2E8F0]'
+              }`}
+            >
+              <span>📋 المهام</span>
+              {adminNewAcksCount > 0 && (
+                <span className="px-1.5 py-0.2 bg-red-500 text-white text-[10px] rounded-full animate-bounce">
+                  {adminNewAcksCount}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('workers')}
@@ -470,6 +595,26 @@ export default function AdminDashboard() {
             </button>
 
             <button
+              onClick={() => {
+                setActiveTab('tasks');
+                clearAdminNotifications();
+              }}
+              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer relative ${
+                activeTab === 'tasks'
+                  ? 'border-amber-600 text-amber-700'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <Send className="w-4 h-4 text-amber-600" />
+              <span>المهام المرسلة للعمال (Tâches)</span>
+              {adminNewAcksCount > 0 && (
+                <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-black rounded-full animate-bounce shadow-xs">
+                  {adminNewAcksCount} جديد
+                </span>
+              )}
+            </button>
+
+            <button
               onClick={() => setActiveTab('workers')}
               className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'workers'
@@ -482,29 +627,40 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          {activeTab === 'inventory' && (
-            <div className="flex items-center gap-2 mb-2">
-              <button
-                onClick={() => setCategoryModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-[#E2E8F0] rounded-xl text-xs font-semibold shadow-xs transition-colors"
-                title="Gérer les catégories (Ajouter ou supprimer)"
-              >
-                <Tag className="w-3.5 h-3.5 text-slate-500" />
-                <span>Gérer les catégories</span>
-              </button>
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              onClick={() => setTaskAssignModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-transform active:scale-95 cursor-pointer"
+              title="Assigner des patrons à un ouvrier avec délai et consignes"
+            >
+              <Send className="w-3.5 h-3.5 text-amber-200" />
+              <span>إرسال مهمة لعامل</span>
+            </button>
 
-              <button
-                onClick={() => {
-                  setEditPattern(null);
-                  setEditModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-transform active:scale-95"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Ajouter un patron</span>
-              </button>
-            </div>
-          )}
+            {activeTab === 'inventory' && (
+              <>
+                <button
+                  onClick={() => setCategoryModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-[#E2E8F0] rounded-xl text-xs font-semibold shadow-xs transition-colors"
+                  title="Gérer les catégories (Ajouter ou supprimer)"
+                >
+                  <Tag className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Gérer les catégories</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEditPattern(null);
+                    setEditModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-transform active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Ajouter un patron</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Tab 1: Inventory Management & Order Fulfillment */}
@@ -1135,9 +1291,27 @@ export default function AdminDashboard() {
           <WorkerAccountsView />
         )}
 
+        {/* Tab 4: Sent Tasks Management (المهام المرسلة للعمال) */}
+        {activeTab === 'tasks' && (
+          <TasksManagementSection 
+            onPreviewImage={(url, title) => setPreviewImage({ url, title, sku: '' })} 
+          />
+        )}
+
       </div>
 
       {/* Modals */}
+      <TaskAssignModal
+        isOpen={taskAssignModalOpen}
+        onClose={() => setTaskAssignModalOpen(false)}
+        onTaskCreated={() => {
+          if (activeTab === 'tasks') {
+            // Rechargement déjà actif
+          } else {
+            notify.success('تم إرسال المهمة بنجاح ! يمكنك متابعتها في قسم "المهام المرسلة"');
+          }
+        }}
+      />
       <OrderFulfillModal
         isOpen={orderModalOpen}
         onClose={() => setOrderModalOpen(false)}
@@ -1215,7 +1389,25 @@ export default function AdminDashboard() {
           }`}
         >
           <Calendar className={`w-5 h-5 mb-0.5 ${activeTab === 'daily' ? 'text-emerald-600' : 'text-slate-400'}`} />
-          <span className="text-[9.5px] sm:text-[10px] text-center leading-tight">Suivi Journalier Ouvriers</span>
+          <span className="text-[9.5px] sm:text-[10px] text-center leading-tight">Suivi</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('tasks');
+            clearAdminNotifications();
+          }}
+          className={`flex flex-col items-center justify-center min-h-[48px] px-2 py-1 rounded-xl transition-colors relative ${
+            activeTab === 'tasks'
+              ? 'text-amber-600 font-bold'
+              : 'text-slate-400 font-medium hover:text-slate-600'
+          }`}
+        >
+          <Send className={`w-5 h-5 mb-0.5 ${activeTab === 'tasks' ? 'text-amber-600' : 'text-slate-400'}`} />
+          <span className="text-[10px]">المهام</span>
+          {adminNewAcksCount > 0 && (
+            <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-red-500 animate-ping" />
+          )}
         </button>
 
         <button

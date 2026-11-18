@@ -159,3 +159,37 @@ export const categoriesApi = {
   },
 };
 
+// Tasks API (Gestion et assignation des patrons aux ouvriers)
+export const tasksApi = {
+  getAll: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.worker_id && params.worker_id !== 'all') query.append('worker_id', params.worker_id);
+    if (params.status && params.status !== 'all') query.append('status', params.status);
+    if (params.acknowledged !== undefined && params.acknowledged !== 'all') query.append('acknowledged', params.acknowledged);
+    if (params.search) query.append('search', params.search);
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    return apiRequest(`/tasks${queryString}`);
+  },
+  getPendingPopup: () => apiRequest('/tasks/pending-popup'),
+  create: (data) => apiRequest('/tasks', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  acknowledge: (id) => apiRequest(`/tasks/${id}/acknowledge`, {
+    method: 'POST',
+  }),
+  getAdminNotifications: () => apiRequest('/tasks/admin-notifications'),
+  markAdminNotified: (taskIds = []) => apiRequest('/tasks/mark-admin-notified', {
+    method: 'POST',
+    body: JSON.stringify({ taskIds }),
+  }),
+  update: (id, data) => apiRequest(`/tasks/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  delete: (id) => apiRequest(`/tasks/${id}`, {
+    method: 'DELETE',
+  }),
+};
+
+
