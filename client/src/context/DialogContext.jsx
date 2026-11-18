@@ -79,7 +79,7 @@ export function DialogProvider({ children }) {
   // Toast Notification
   const addToast = useCallback((message, type = 'info', duration = 3500) => {
     const id = Date.now() + Math.random().toString(36).substring(2, 5);
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message, type, duration }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, duration);
@@ -291,43 +291,99 @@ export function DialogProvider({ children }) {
         </div>
       )}
 
-      {/* 3. FLOATING TOAST NOTIFICATIONS */}
+      {/* 3. PREMIUM FLOATING TOAST NOTIFICATIONS */}
       {toasts.length > 0 && (
-        <div className="fixed top-4 right-4 z-110 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
-          {toasts.map((toast) => (
-            <div
-              key={toast.id}
-              className={`pointer-events-auto p-3.5 rounded-2xl shadow-xl border flex items-center justify-between gap-3 animate-in slide-in-from-top-3 duration-200 ${
-                toast.type === 'success'
-                  ? 'bg-emerald-600 text-white border-emerald-700'
-                  : toast.type === 'error'
-                  ? 'bg-red-600 text-white border-red-700'
-                  : toast.type === 'warning'
-                  ? 'bg-amber-600 text-white border-amber-700'
-                  : 'bg-[#0F172A] text-white border-slate-800'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                {toast.type === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-white" />
-                ) : toast.type === 'error' ? (
-                  <AlertCircle className="w-4 h-4 shrink-0 text-white" />
-                ) : toast.type === 'warning' ? (
-                  <AlertTriangle className="w-4 h-4 shrink-0 text-white" />
-                ) : (
-                  <Info className="w-4 h-4 shrink-0 text-white" />
-                )}
-                <span className="text-xs font-semibold leading-tight">{toast.message}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-                className="text-white/70 hover:text-white p-1 rounded-lg shrink-0 cursor-pointer"
+        <div className="fixed top-4 sm:top-5 left-1/2 -translate-x-1/2 z-110 flex flex-col items-center gap-2.5 max-w-lg w-[calc(100%-2rem)] sm:w-auto pointer-events-none">
+          {toasts.map((toast) => {
+            const parts = toast.message ? String(toast.message).split(' / ') : [];
+            const isBilingual = parts.length === 2;
+
+            return (
+              <div
+                key={toast.id}
+                className={`pointer-events-auto relative overflow-hidden rounded-2xl p-3 sm:px-4 sm:py-3.5 shadow-2xl border backdrop-blur-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-300 w-full sm:min-w-[340px] max-w-md ${
+                  toast.type === 'success'
+                    ? 'bg-slate-900/95 text-white border-emerald-500/35 shadow-emerald-950/20'
+                    : toast.type === 'error'
+                    ? 'bg-slate-900/95 text-white border-red-500/35 shadow-red-950/20'
+                    : toast.type === 'warning'
+                    ? 'bg-slate-900/95 text-white border-amber-500/35 shadow-amber-950/20'
+                    : 'bg-slate-900/95 text-white border-slate-700/80 shadow-slate-950/30'
+                }`}
               >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
+                {/* Micro Progress Bar Countdown */}
+                <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-white/10 overflow-hidden">
+                  <div
+                    className={`h-full ${
+                      toast.type === 'success'
+                        ? 'bg-emerald-400'
+                        : toast.type === 'error'
+                        ? 'bg-red-400'
+                        : toast.type === 'warning'
+                        ? 'bg-amber-400'
+                        : 'bg-sky-400'
+                    }`}
+                    style={{
+                      animation: `toastProgress ${toast.duration || 3500}ms linear forwards`,
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  {/* Glowing Icon Pill */}
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border shadow-inner ${
+                      toast.type === 'success'
+                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                        : toast.type === 'error'
+                        ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                        : toast.type === 'warning'
+                        ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                        : 'bg-sky-500/15 border-sky-500/30 text-sky-400'
+                    }`}
+                  >
+                    {toast.type === 'success' ? (
+                      <CheckCircle2 className="w-5 h-5 stroke-[2.2]" />
+                    ) : toast.type === 'error' ? (
+                      <AlertCircle className="w-5 h-5 stroke-[2.2]" />
+                    ) : toast.type === 'warning' ? (
+                      <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
+                    ) : (
+                      <Info className="w-5 h-5 stroke-[2.2]" />
+                    )}
+                  </div>
+
+                  {/* Message Content */}
+                  <div className="min-w-0 text-left flex-1">
+                    {isBilingual ? (
+                      <div>
+                        <div className="text-xs font-bold text-white tracking-wide truncate">
+                          {parts[0]}
+                        </div>
+                        <div className="text-[11px] font-semibold text-slate-300 truncate font-arabic mt-0.5" dir="rtl">
+                          {parts[1]}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs font-bold text-white tracking-wide leading-snug">
+                        {toast.message}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Dismiss Button */}
+                <button
+                  type="button"
+                  onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
+                  title="Fermer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
