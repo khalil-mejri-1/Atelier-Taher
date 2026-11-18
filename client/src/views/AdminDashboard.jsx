@@ -507,7 +507,7 @@ export default function AdminDashboard() {
                   : 'bg-white text-slate-600 border border-[#E2E8F0]'
               }`}
             >
-              📅 Suivi Journalier Ouvriers
+              📅 Suivi
             </button>
             <button
               onClick={() => {
@@ -516,13 +516,13 @@ export default function AdminDashboard() {
               }}
               className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
                 activeTab === 'tasks'
-                  ? 'bg-amber-600 text-white shadow-xs'
+                  ? 'bg-[#0F172A] text-white shadow-xs'
                   : 'bg-white text-slate-600 border border-[#E2E8F0]'
               }`}
             >
               <span>📋 المهام</span>
               {adminNewAcksCount > 0 && (
-                <span className="px-1.5 py-0.2 bg-red-500 text-white text-[10px] rounded-full animate-bounce">
+                <span className="px-1.5 py-0.2 bg-rose-500 text-white text-[10px] font-bold rounded-full">
                   {adminNewAcksCount}
                 </span>
               )}
@@ -535,7 +535,7 @@ export default function AdminDashboard() {
                   : 'bg-white text-slate-600 border border-[#E2E8F0]'
               }`}
             >
-              👥 Utilisateurs
+              👥 المستخدمين
             </button>
           </div>
 
@@ -565,17 +565,30 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {activeTab === 'tasks' && (
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <span className="text-xs font-bold text-slate-700">المهام المسندة للعمال</span>
+              <button
+                onClick={() => setTaskAssignModalOpen(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-2xs transition-transform active:scale-95"
+              >
+                <Send className="w-3.5 h-3.5 text-amber-300" />
+                <span>إرسال مهمة</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Desktop View Tabs Navigation */}
         <div className="hidden sm:flex items-center justify-between border-b border-[#E2E8F0] mb-5">
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 -mb-px">
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+              className={`pb-3 px-3.5 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'inventory'
                   ? 'border-[#0F172A] text-[#0F172A]'
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
               }`}
             >
               <Layers className="w-4 h-4" />
@@ -584,14 +597,14 @@ export default function AdminDashboard() {
 
             <button
               onClick={() => setActiveTab('daily')}
-              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+              className={`pb-3 px-3.5 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'daily'
                   ? 'border-emerald-600 text-emerald-700'
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
               }`}
             >
               <Calendar className="w-4 h-4 text-emerald-600" />
-              <span>Suivi Journalier Ouvriers (Gains)</span>
+              <span>Suivi Journalier</span>
             </button>
 
             <button
@@ -599,49 +612,41 @@ export default function AdminDashboard() {
                 setActiveTab('tasks');
                 clearAdminNotifications();
               }}
-              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer relative ${
+              className={`pb-3 px-3.5 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer relative ${
                 activeTab === 'tasks'
-                  ? 'border-amber-600 text-amber-700'
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
+                  ? 'border-amber-600 text-amber-800'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
               }`}
             >
               <Send className="w-4 h-4 text-amber-600" />
-              <span>المهام المرسلة للعمال (Tâches)</span>
+              <span>المهام المرسلة</span>
               {adminNewAcksCount > 0 && (
-                <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-black rounded-full animate-bounce shadow-xs">
-                  {adminNewAcksCount} جديد
+                <span className="px-1.5 py-0.2 bg-rose-500 text-white text-[10px] font-bold rounded-full shadow-2xs leading-none">
+                  {adminNewAcksCount}
                 </span>
               )}
             </button>
 
             <button
               onClick={() => setActiveTab('workers')}
-              className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+              className={`pb-3 px-3.5 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
                 activeTab === 'workers'
                   ? 'border-[#0F172A] text-[#0F172A]'
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Comptes & Utilisateurs</span>
+              <span>المستخدمين</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              onClick={() => setTaskAssignModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-transform active:scale-95 cursor-pointer"
-              title="Assigner des patrons à un ouvrier avec délai et consignes"
-            >
-              <Send className="w-3.5 h-3.5 text-amber-200" />
-              <span>إرسال مهمة لعامل</span>
-            </button>
-
+          {/* Action buttons contextual to active tab */}
+          <div className="flex items-center gap-2 pb-2">
             {activeTab === 'inventory' && (
               <>
                 <button
                   onClick={() => setCategoryModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-[#E2E8F0] rounded-xl text-xs font-semibold shadow-xs transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-[#E2E8F0] rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
                   title="Gérer les catégories (Ajouter ou supprimer)"
                 >
                   <Tag className="w-3.5 h-3.5 text-slate-500" />
@@ -653,12 +658,22 @@ export default function AdminDashboard() {
                     setEditPattern(null);
                     setEditModalOpen(true);
                   }}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-transform active:scale-95"
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-transform active:scale-95 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Ajouter un patron</span>
                 </button>
               </>
+            )}
+
+            {activeTab === 'tasks' && (
+              <button
+                onClick={() => setTaskAssignModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-transform active:scale-95 cursor-pointer"
+              >
+                <Send className="w-3.5 h-3.5 text-amber-300" />
+                <span>إرسال مهمة لعامل</span>
+              </button>
             )}
           </div>
         </div>
