@@ -369,8 +369,13 @@ async function seed() {
   await mongoose.disconnect();
 }
 
-seed().catch((err) => {
-  console.error('❌ Erreur lors de l\'insertion :', err);
-  process.exit(1);
-});
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  seed().catch((err) => {
+    console.error('❌ Erreur lors de l\'insertion :', err);
+    process.exit(1);
+  });
+}
+
+export default seed;
+
 
