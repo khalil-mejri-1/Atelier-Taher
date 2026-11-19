@@ -46,7 +46,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api', (req, res) => {
-  res.send('server run');
+  res.send('server run test ');
 });
 
 // Health check
