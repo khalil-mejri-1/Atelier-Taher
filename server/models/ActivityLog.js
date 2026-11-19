@@ -20,6 +20,7 @@ const activityLogSchema = new mongoose.Schema(
         'user_status',
         'task_assign',
         'task_acknowledge',
+        'worker_settlement',
       ],
     },
     user_id: {
@@ -80,6 +81,15 @@ const activityLogSchema = new mongoose.Schema(
       type: Number, // 0 for active, 1 for undone (matches frontend expectation)
       default: 0,
     },
+    settled: {
+      type: Boolean,
+      default: false,
+    },
+    settlement_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Settlement',
+      default: null,
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
@@ -91,6 +101,7 @@ const activityLogSchema = new mongoose.Schema(
 activityLogSchema.index({ created_at: -1 });
 activityLogSchema.index({ action_type: 1 });
 activityLogSchema.index({ user_id: 1 });
+activityLogSchema.index({ user_id: 1, settled: 1, action_type: 1 });
 
 const ActivityLog = mongoose.model('ActivityLog', activityLogSchema);
 export default ActivityLog;

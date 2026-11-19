@@ -79,17 +79,21 @@ export default function WorkerView() {
   const [flashMessage, setFlashMessage] = useState('');
   const [producingId, setProducingId] = useState(null);
 
-  // Pagination & Infinite Scroll: 5 on initial load, +10 on each scroll down
+  // Pagination & Infinite Scroll: 50 on initial load, +20 on each scroll down
   const [hasMore, setHasMore] = useState(false);
   const [totalPatterns, setTotalPatterns] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const patternsRef = useRef([]);
   patternsRef.current = patterns;
+  const isFetchingRef = useRef(false);
   const sentinelRef = useRef(null);
 
-  // Chargement ultra-rapide des patrons seuls
+  // Chargement ultra-rapide des patrons seuls (optimisé avec verrou de concurrence)
   const fetchPatternsData = async (isBackground = false) => {
+    if (isFetchingRef.current && isBackground) return;
+
     try {
+      isFetchingRef.current = true;
       if (!isBackground && patternsRef.current.length === 0) {
         setLoading(true);
       }
@@ -97,8 +101,8 @@ export default function WorkerView() {
 
       const isSearchActive = Boolean(debouncedSearch.trim());
       const currentLimit = isSearchActive
-        ? 30
-        : (isBackground ? Math.max(5, patternsRef.current.length) : 5);
+        ? 50
+        : (isBackground ? Math.max(50, patternsRef.current.length) : 50);
 
       const patRes = await patternsApi.getAll({
         category: selectedCategory === 'all' ? undefined : selectedCategory,
@@ -113,6 +117,7 @@ export default function WorkerView() {
     } catch (err) {
       console.error('Erreur chargement patrons opérateur :', err);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
       setIsSearching(false);
     }
@@ -232,16 +237,16 @@ export default function WorkerView() {
     return () => clearInterval(interval);
   }, [selectedCategory, debouncedSearch]);
 
-  // Load next 10 patterns on scroll down
+  // Load next 20 patterns on scroll down
   const loadMorePatterns = async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore || isFetchingRef.current) return;
     setLoadingMore(true);
     try {
       const currentCount = patternsRef.current.length;
       const patRes = await patternsApi.getAll({
         category: selectedCategory === 'all' ? undefined : selectedCategory,
         search: debouncedSearch.trim() || undefined,
-        limit: 10,
+        limit: 20,
         skip: currentCount,
       });
 

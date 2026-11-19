@@ -16,6 +16,7 @@ import logsRouter from './routes/logs.js';
 import workersRouter from './routes/workers.js';
 import { createCategoriesRouter } from './routes/categories.js';
 import tasksRouter from './routes/tasks.js';
+import settlementsRouter from './routes/settlements.js';
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.use('/api/categories', createCategoriesRouter());
 app.use('/api/logs', logsRouter);
 app.use('/api/workers', workersRouter);
 app.use('/api/tasks', tasksRouter);
+app.use('/api/settlements', settlementsRouter);
 
 // Root backend welcome route
 app.get('/', (req, res) => {

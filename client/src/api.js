@@ -25,18 +25,34 @@ export async function apiRequest(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  // Timeout de sécurité de 20s pour éviter tout blocage indéfini du réseau
+  const controller = new AbortController();
+  const timeoutMs = options.timeout || 20000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const data = await response.json().catch(() => ({}));
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+      signal: options.signal || controller.signal,
+    });
 
-  if (!response.ok) {
-    throw new Error(data.message || `خطأ في الطلب: ${response.status}`);
+    clearTimeout(timeoutId);
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || `خطأ في الطلب: ${response.status}`);
+    }
+
+    return data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('انتهت مهلة الاتصال بالخادم. يرجى التحقق من جودة الاتصال');
+    }
+    throw err;
   }
-
-  return data;
 }
 
 // Authentication API
@@ -191,5 +207,25 @@ export const tasksApi = {
     method: 'DELETE',
   }),
 };
+
+// Settlements API (Gestion du خلاص والمستحقات غير المدفوعة للعمال)
+export const settlementsApi = {
+  getUnpaidSummary: (worker_id) => {
+    const query = worker_id && worker_id !== 'all' ? `?worker_id=${encodeURIComponent(worker_id)}` : '';
+    return apiRequest(`/settlements/unpaid-summary${query}`);
+  },
+  settleWorker: (data) => apiRequest('/settlements/settle', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  getHistory: (worker_id) => {
+    const query = worker_id && worker_id !== 'all' ? `?worker_id=${encodeURIComponent(worker_id)}` : '';
+    return apiRequest(`/settlements/history${query}`);
+  },
+  cancelSettlement: (id) => apiRequest(`/settlements/${id}`, {
+    method: 'DELETE',
+  }),
+};
+
 
 

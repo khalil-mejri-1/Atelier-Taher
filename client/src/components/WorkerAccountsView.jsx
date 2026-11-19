@@ -10,15 +10,21 @@ import {
   Search,
   Filter,
   Coins,
-  Loader2
+  Loader2,
+  CreditCard,
+  History
 } from 'lucide-react';
-import { workersApi } from '../api';
+import { workersApi, settlementsApi } from '../api';
 import WorkerManageModal from './WorkerManageModal';
+import SettlementModal from './SettlementModal';
+import SettlementHistoryModal from './SettlementHistoryModal';
+import UnpaidSettlementBreakdownModal from './UnpaidSettlementBreakdownModal';
 import { useDialog } from '../context/DialogContext';
 
 export default function WorkerAccountsView() {
   const { confirm, notify } = useDialog();
   const [workers, setWorkers] = useState([]);
+  const [unpaidMap, setUnpaidMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState(null);
@@ -28,11 +34,31 @@ export default function WorkerAccountsView() {
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [actionType, setActionType] = useState(''); // 'delete' | 'toggle'
 
+  // Modals de règlement & historique
+  const [settleModalOpen, setSettleModalOpen] = useState(false);
+  const [settleTargetWorker, setSettleTargetWorker] = useState(null);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyWorkerId, setHistoryWorkerId] = useState('all');
+  const [historyWorkerName, setHistoryWorkerName] = useState('');
+  const [breakdownModalOpen, setBreakdownModalOpen] = useState(false);
+  const [breakdownTargetWorker, setBreakdownTargetWorker] = useState(null);
+
   const loadWorkers = async () => {
     try {
       setLoading(true);
-      const res = await workersApi.getAll();
+      const [res, unpaidRes] = await Promise.all([
+        workersApi.getAll(),
+        settlementsApi.getUnpaidSummary('all').catch(() => null),
+      ]);
       setWorkers(res.workers || []);
+
+      if (unpaidRes && Array.isArray(unpaidRes.workers)) {
+        const map = {};
+        unpaidRes.workers.forEach((w) => {
+          map[w.worker_id] = w;
+        });
+        setUnpaidMap(map);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -139,16 +165,30 @@ export default function WorkerAccountsView() {
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            setSelectedWorker(null);
-            setModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-transform active:scale-95 cursor-pointer shrink-0"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Ajouter un utilisateur / إضافة مستخدم</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => {
+              setHistoryWorkerId('all');
+              setHistoryWorkerName('Tous les ouvriers (جميع العمال)');
+              setHistoryModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer shrink-0"
+          >
+            <History className="w-4 h-4 text-emerald-600" />
+            <span>سجل خلاص العمال (Historique)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedWorker(null);
+              setModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-transform active:scale-95 cursor-pointer shrink-0"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Ajouter un utilisateur / إضافة مستخدم</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Counters & Filter Bar */}
@@ -302,18 +342,66 @@ export default function WorkerAccountsView() {
                     </div>
 
                     {!isAdmin && (
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-slate-400">Total production :</span>
-                        <span className="font-bold text-emerald-700 font-sku">
-                          {worker.total_operations || 0} op.
-                        </span>
-                      </div>
+                      <>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-slate-400">Total production :</span>
+                          <span className="font-bold text-slate-700 font-sku">
+                            {worker.total_operations || 0} op.
+                          </span>
+                        </div>
+
+                        {/* Solde impayé pour cet ouvrier */}
+                        <div className="flex items-center justify-between gap-1 pt-1 border-t border-dashed border-slate-200">
+                          <span className="text-slate-500 font-medium">المستحقات غير الخالصة :</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`font-mono font-extrabold text-xs px-2 py-0.5 rounded-lg border ${
+                              (worker.balance || 0) > 0 || (unpaidMap[worker.id]?.total_unpaid_amount || 0) > 0
+                                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            }`}>
+                              {(unpaidMap[worker.id]?.total_unpaid_amount ?? worker.balance ?? 0).toFixed(3)} DT
+                            </span>
+                            {unpaidMap[worker.id]?.unpaid_days_count > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBreakdownTargetWorker(unpaidMap[worker.id] || worker);
+                                  setBreakdownModalOpen(true);
+                                }}
+                                className="text-[10px] text-slate-400 hover:text-slate-700 underline cursor-pointer"
+                                title="Voir les jours impayés"
+                              >
+                                ({unpaidMap[worker.id].unpaid_days_count} j)
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
 
                 {/* Card Actions */}
-                <div className="flex items-center justify-end gap-1.5 pt-2.5 mt-1 border-t border-slate-50">
+                <div className="flex items-center justify-end gap-1.5 pt-2.5 mt-1 border-t border-slate-50 flex-wrap">
+                  {!isAdmin && ((worker.balance || 0) > 0 || (unpaidMap[worker.id]?.total_unpaid_amount || 0) > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettleTargetWorker(unpaidMap[worker.id] || {
+                          worker_id: worker.id,
+                          name: worker.name,
+                          balance: worker.balance || 0,
+                        });
+                        setSettleModalOpen(true);
+                      }}
+                      className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                      title="Enregistrer le خلاص de cet ouvrier"
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      <span>خلاص ({(unpaidMap[worker.id]?.total_unpaid_amount ?? worker.balance ?? 0).toFixed(3)} DT)</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       setSelectedWorker(worker);
@@ -355,6 +443,35 @@ export default function WorkerAccountsView() {
         onClose={() => setModalOpen(false)}
         worker={selectedWorker}
         onSave={handleSaveWorker}
+      />
+
+      {/* Settlement Modals */}
+      <SettlementModal
+        isOpen={settleModalOpen}
+        onClose={() => setSettleModalOpen(false)}
+        worker={settleTargetWorker}
+        onSettled={() => {
+          notify.success('Règlement enregistré avec succès / تم تسجيل الخلاص بنجاح');
+          loadWorkers();
+        }}
+      />
+
+      <SettlementHistoryModal
+        isOpen={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        workerId={historyWorkerId}
+        workerName={historyWorkerName}
+        onChanged={loadWorkers}
+      />
+
+      <UnpaidSettlementBreakdownModal
+        isOpen={breakdownModalOpen}
+        onClose={() => setBreakdownModalOpen(false)}
+        worker={breakdownTargetWorker}
+        onOpenSettleModal={(w) => {
+          setSettleTargetWorker(w);
+          setSettleModalOpen(true);
+        }}
       />
     </div>
   );

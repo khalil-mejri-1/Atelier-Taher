@@ -242,8 +242,8 @@ export default function PatternEditModal({
 
   const isEdit = Boolean(pattern);
 
-  // Handle local file upload
-  const handleFileUpload = (e) => {
+  // Handle local file upload with instant client-side canvas compression
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -252,20 +252,39 @@ export default function PatternEditModal({
       return;
     }
 
-    if (file.size > 6 * 1024 * 1024) {
-      setError('La taille de l’image ne doit pas dépasser 6 Mo');
-      return;
-    }
+    try {
+      // Compression instantanée dans le navigateur pour garantir une taille plume (< 40 Ko)
+      const compressedDataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          img.onload = () => {
+            const maxWidth = 800;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.75));
+          };
+          img.onerror = () => reject(new Error('Erreur de chargement de l’image'));
+        };
+        reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
+      });
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setFormData((prev) => ({ ...prev, image_url: event.target.result }));
+      setFormData((prev) => ({ ...prev, image_url: compressedDataUrl }));
       setError('');
-    };
-    reader.onerror = () => {
-      setError('Erreur lors de la lecture du fichier');
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      setError(err.message || 'Erreur lors du traitement de l’image');
+    }
   };
 
   const handleSubmit = async (e) => {

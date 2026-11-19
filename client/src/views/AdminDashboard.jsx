@@ -107,27 +107,32 @@ export default function AdminDashboard() {
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [actionType, setActionType] = useState(''); // 'deduct' | 'delete'
 
-  // Pagination & Infinite Scroll: 5 on initial load, +10 on each scroll down
+  // Pagination & Infinite Scroll: 50 on initial load, +20 on each scroll down
   const [hasMore, setHasMore] = useState(false);
   const [totalPatterns, setTotalPatterns] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const patternsRef = useRef([]);
   patternsRef.current = patterns;
+  const isFetchingRef = useRef(false);
   const sentinelRef = useRef(null);
 
-  // Chargement ultra-rapide des patrons seuls (optimisé pour la recherche)
+  // Chargement ultra-rapide des patrons seuls (optimisé avec verrou de concurrence)
   const fetchPatternsData = async (isBackground = false) => {
+    // Éviter l'empilement des requêtes périodiques en tâche de fond
+    if (isFetchingRef.current && isBackground) return;
+
     try {
+      isFetchingRef.current = true;
       if (!isBackground && patternsRef.current.length === 0) {
         setLoading(true);
       }
       setIsSearching(true);
 
       const isSearchActive = Boolean(debouncedSearch.trim());
-      // En cas de recherche active, ramener jusqu'à 30 correspondances immédiatement
+      // Charger directement jusqu'à 50 patrons pour un affichage immédiat de l'ensemble
       const currentLimit = isSearchActive
-        ? 30
-        : (isBackground ? Math.max(5, patternsRef.current.length) : 5);
+        ? 50
+        : (isBackground ? Math.max(50, patternsRef.current.length) : 50);
 
       const patRes = await patternsApi.getAll({
         search: debouncedSearch.trim() || undefined,
@@ -143,6 +148,7 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Erreur chargement patrons :', err);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
       setIsSearching(false);
     }
@@ -239,9 +245,9 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, [debouncedSearch, selectedCategory, filterLowStockOnly]);
 
-  // Load next 10 patterns on scroll down
+  // Load next 20 patterns on scroll down
   const loadMorePatterns = async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore || isFetchingRef.current) return;
     setLoadingMore(true);
     try {
       const currentCount = patternsRef.current.length;
@@ -249,7 +255,7 @@ export default function AdminDashboard() {
         search: debouncedSearch.trim() || undefined,
         category: selectedCategory === 'all' ? undefined : selectedCategory,
         low_stock: filterLowStockOnly ? true : undefined,
-        limit: 10,
+        limit: 20,
         skip: currentCount,
       });
 

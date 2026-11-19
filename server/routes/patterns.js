@@ -1,10 +1,37 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import sharp from 'sharp';
 import Pattern from '../models/Pattern.js';
 import Category from '../models/Category.js';
 import ActivityLog from '../models/ActivityLog.js';
 import User from '../models/User.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+
+// Compression automatique des images base64 pour garantir une légèreté extrême (< 35 Ko)
+async function compressImageIfBase64(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string') return '';
+  const trimmed = imageUrl.trim();
+  if (!trimmed.startsWith('data:image/')) return trimmed;
+
+  // Si l'image est déjà ultra légère (< 40 Ko), pas besoin de la retraiter
+  if (trimmed.length < 40 * 1024) return trimmed;
+
+  try {
+    const matches = trimmed.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/s);
+    if (!matches) return trimmed;
+
+    const buffer = Buffer.from(matches[2], 'base64');
+    const compressedBuffer = await sharp(buffer)
+      .resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 75 })
+      .toBuffer();
+
+    return `data:image/webp;base64,${compressedBuffer.toString('base64')}`;
+  } catch (err) {
+    console.error('Erreur compression image sharp, conservation :', err.message);
+    return trimmed;
+  }
+}
 
 export function createPatternsRouter() {
   const router = express.Router();
@@ -38,19 +65,21 @@ export function createPatternsRouter() {
         filter.$expr = { $lte: ['$current_stock', '$low_stock_threshold'] };
       }
 
-      const total = await Pattern.countDocuments(filter);
+      const total = await Pattern.countDocuments(filter).maxTimeMS(10000);
 
-      let query = Pattern.find(filter).sort({
-        current_stock: -1,
-        _id: -1,
-      });
+      let query = Pattern.find(filter)
+        .maxTimeMS(10000)
+        .sort({
+          current_stock: -1,
+          _id: -1,
+        });
 
       const skipNum = parseInt(skip, 10);
       if (!isNaN(skipNum) && skipNum > 0) {
         query = query.skip(skipNum);
       }
 
-      // Si l'utilisateur effectue une recherche précise et sans limite explicite, retourner jusqu'à 30 résultats
+      // Par défaut, retourner jusqu'à 50 résultats pour charger toute la collection d'un coup
       const defaultLimit = (search && search.trim()) ? 30 : 50;
       const limitNum = parseInt(limit, 10);
       if (!isNaN(limitNum) && limitNum > 0) {
@@ -623,6 +652,7 @@ export function createPatternsRouter() {
 
       const initialStock = Math.max(0, parseInt(current_stock, 10) || 0);
       const threshold = Math.max(1, parseInt(low_stock_threshold, 10) || 10);
+      const optimizedImage = await compressImageIfBase64(image_url);
 
       const created = await Pattern.create({
         sku: upperSku,
@@ -635,7 +665,7 @@ export function createPatternsRouter() {
         material_type: material_type.trim(),
         price: Math.max(0, parseFloat(price) || 0),
         notes: notes.trim(),
-        image_url: image_url ? image_url.trim() : '',
+        image_url: optimizedImage,
         has_parts: hasPartsBool,
         parts: cleanedParts,
       });
@@ -715,7 +745,7 @@ export function createPatternsRouter() {
       }
       pattern.notes = notes.trim();
       if (image_url !== undefined) {
-        pattern.image_url = image_url ? image_url.trim() : '';
+        pattern.image_url = await compressImageIfBase64(image_url);
       }
 
       if (has_parts !== undefined || parts !== undefined) {

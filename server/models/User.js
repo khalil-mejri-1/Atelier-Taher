@@ -41,6 +41,10 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    last_settled_at: {
+      type: Date,
+      default: null,
+    },
     in_progress_patterns: [
       {
         pattern_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Pattern' },

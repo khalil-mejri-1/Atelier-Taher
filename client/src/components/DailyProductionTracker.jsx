@@ -16,10 +16,19 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   Trash2,
-  Loader2
+  Loader2,
+  CreditCard,
+  History,
+  User,
+  ChevronDown,
+  ChevronUp,
+  Check
 } from 'lucide-react';
-import { logsApi, patternsApi } from '../api';
+import { logsApi, patternsApi, settlementsApi } from '../api';
 import { useDialog } from '../context/DialogContext';
+import SettlementModal from './SettlementModal';
+import SettlementHistoryModal from './SettlementHistoryModal';
+import UnpaidSettlementBreakdownModal from './UnpaidSettlementBreakdownModal';
 
 export default function DailyProductionTracker({ onPreviewImage }) {
   const { confirm, showNotice, notify } = useDialog();
@@ -48,6 +57,30 @@ export default function DailyProductionTracker({ onPreviewImage }) {
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState(null);
 
+  // États pour la gestion du خلاص والمستحقات التراكمية غير الخالصة لجميع الأيام
+  const [unpaidSummary, setUnpaidSummary] = useState(null);
+  const [loadingUnpaid, setLoadingUnpaid] = useState(false);
+  const [settleModalOpen, setSettleModalOpen] = useState(false);
+  const [settleTargetWorker, setSettleTargetWorker] = useState(null);
+  const [breakdownModalOpen, setBreakdownModalOpen] = useState(false);
+  const [breakdownTargetWorker, setBreakdownTargetWorker] = useState(null);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyWorkerId, setHistoryWorkerId] = useState('all');
+  const [historyWorkerName, setHistoryWorkerName] = useState('');
+  const [workersListExpanded, setWorkersListExpanded] = useState(false);
+
+  const loadUnpaidSummary = async () => {
+    setLoadingUnpaid(true);
+    try {
+      const res = await settlementsApi.getUnpaidSummary(selectedWorkerId);
+      setUnpaidSummary(res);
+    } catch (err) {
+      console.error('Erreur chargement récapitulatif impayés :', err);
+    } finally {
+      setLoadingUnpaid(false);
+    }
+  };
+
   const loadDailyReport = async () => {
     setLoading(true);
     setError('');
@@ -64,7 +97,13 @@ export default function DailyProductionTracker({ onPreviewImage }) {
 
   useEffect(() => {
     loadDailyReport();
+    loadUnpaidSummary();
   }, [selectedDate, selectedWorkerId]);
+
+  const refreshAllData = () => {
+    loadDailyReport();
+    loadUnpaidSummary();
+  };
 
   // Navigate Days (-1, +1, or Today)
   const shiftDate = (days) => {
@@ -413,6 +452,339 @@ export default function DailyProductionTracker({ onPreviewImage }) {
         </div>
       </div>
 
+      {/* 2.5 CUMULATIVE UNPAID DUES SECTION (التكلفة الإجمالية لجميع الأيام التي لم يتم خلاص العامل فيها) */}
+      {selectedWorkerId === 'all' ? (
+        <div className="bg-gradient-to-br from-white via-slate-50 to-emerald-50/30 rounded-2xl p-4 border-2 border-emerald-500/20 shadow-xs space-y-3">
+          {/* Header Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-white flex items-center justify-center shadow-xs shrink-0">
+                <CreditCard className="w-5 h-5 text-emerald-100" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-extrabold text-xs sm:text-sm text-slate-900">
+                    المستحقات التراكمية غير الخالصة للعمال (جميع الأيام)
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                    غير مدفوع / Solde Dû
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-arabic" dir="rtl">
+                  التكلفة الإجمالية لجميع أيام العمل السابقة التي لم يتسلّم فيها العمال أجرهم بعد (تراكمي)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryWorkerId('all');
+                  setHistoryWorkerName('Tous les ouvriers (جميع العمال)');
+                  setHistoryModalOpen(true);
+                }}
+                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+              >
+                <History className="w-3.5 h-3.5 text-slate-500" />
+                <span>سجل خلاص العمال (Historique)</span>
+              </button>
+
+              {(unpaidSummary?.workers?.filter((w) => w.total_unpaid_amount > 0 || (w.balance && w.balance > 0)) || []).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setWorkersListExpanded((prev) => !prev)}
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                >
+                  <span>العمال المستحقون ({((unpaidSummary?.workers?.filter((w) => w.total_unpaid_amount > 0 || (w.balance && w.balance > 0))) || []).length})</span>
+                  {workersListExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 3 Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Metric 1: Grand Total Cumulative Unpaid */}
+            <div className="bg-white p-3.5 rounded-xl border border-emerald-200/90 shadow-2xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block mb-1">
+                إجمالي التكلفة غير الخالصة (جميع الأيام)
+              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-mono text-2xl font-black text-emerald-700">
+                  {(unpaidSummary?.grand_total_unpaid || 0).toFixed(3)}
+                </span>
+                <span className="text-sm font-bold text-emerald-600">DT</span>
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                المجموع التراكمي الفعلي المطلوب تسويته للعمال
+              </span>
+            </div>
+
+            {/* Metric 2: Today's single day comparison */}
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                مكسب اليوم المحدد فقط ({dateLabels.fr})
+              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-mono text-xl font-extrabold text-slate-800">
+                  {(data.totalEarnings || 0).toFixed(3)}
+                </span>
+                <span className="text-xs font-bold text-slate-500">DT</span>
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                إنتاج وتكلفة تاريخ {selectedDate} فقط
+              </span>
+            </div>
+
+            {/* Metric 3: Active unpaid workers count */}
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                العمال ذوو المستحقات والقطع
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-xl font-extrabold text-slate-900">
+                  {((unpaidSummary?.workers?.filter((w) => w.total_unpaid_amount > 0 || (w.balance && w.balance > 0))) || []).length}
+                </span>
+                <span className="text-xs font-semibold text-slate-600">
+                  عامل ينتظر الخلاص ({unpaidSummary?.grand_total_pieces || 0} قطعة)
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                {((unpaidSummary?.workers?.filter((w) => w.total_unpaid_amount > 0 || (w.balance && w.balance > 0))) || []).length === 0
+                  ? '✅ جميع الحسابات مسواة بالكامل'
+                  : 'يمكنك خلاص أي عامل بضغطة زر'}
+              </span>
+            </div>
+          </div>
+
+          {/* Expandable Workers Unpaid List */}
+          {workersListExpanded && (
+            <div className="pt-2 border-t border-slate-200/80 space-y-2 animate-in fade-in duration-200">
+              <span className="text-[11px] font-bold text-slate-700 block">
+                تفاصيل المستحقات لكل عامل على حدة :
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {((unpaidSummary?.workers?.filter((w) => w.total_unpaid_amount > 0 || (w.balance && w.balance > 0))) || []).map((w) => (
+                  <div
+                    key={w.worker_id}
+                    className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs hover:border-emerald-300 transition-all flex flex-col justify-between gap-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="font-bold text-xs text-slate-900 block truncate">
+                          {w.worker_name}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono block">
+                          @{w.username}
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="font-mono font-extrabold text-sm text-emerald-700 block">
+                          {(w.total_unpaid_amount || w.balance || 0).toFixed(3)} DT
+                        </span>
+                        <span className="text-[9.5px] text-amber-800 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                          {w.unpaid_days_count} يوم عمل ({w.unpaid_pieces_count} pcs)
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBreakdownTargetWorker(w);
+                          setBreakdownModalOpen(true);
+                        }}
+                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10.5px] font-bold transition-colors cursor-pointer"
+                      >
+                        تفاصيل الأيام ({w.unpaid_days_count})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettleTargetWorker(w);
+                          setSettleModalOpen(true);
+                        }}
+                        className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10.5px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                      >
+                        <CreditCard className="w-3 h-3" />
+                        <span>خلاص العامل</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* INDIVIDUAL WORKER UNPAID DOSSIER */
+        <div className="bg-gradient-to-br from-white via-emerald-50/20 to-slate-50 rounded-2xl p-4 border-2 border-emerald-600/30 shadow-xs space-y-3.5">
+          {/* Top Worker Profile & Quick Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-[#0F172A] text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                <User className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
+                    {unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.worker_name ||
+                      data.allWorkers?.find((w) => w._id === selectedWorkerId)?.name ||
+                      'العامل المحدد'}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
+                    @{unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.username ||
+                      data.allWorkers?.find((w) => w._id === selectedWorkerId)?.username}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                    ملف المستحقات الكامل
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-arabic" dir="rtl">
+                  متابعة التكلفة الإجمالية لجميع الأيام غير الخالصة لهذا العامل
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryWorkerId(selectedWorkerId);
+                  setHistoryWorkerName(
+                    unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.worker_name ||
+                      data.allWorkers?.find((w) => w._id === selectedWorkerId)?.name ||
+                      ''
+                  );
+                  setHistoryModalOpen(true);
+                }}
+                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+              >
+                <History className="w-3.5 h-3.5 text-slate-500" />
+                <span>أرشيف الخلاص السابق</span>
+              </button>
+
+              {(unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.unpaid_days_count || 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId);
+                    setBreakdownTargetWorker(target);
+                    setBreakdownModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <span>تفاصيل الأيام غير الخالصة ({unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.unpaid_days_count || 0})</span>
+                </button>
+              )}
+
+              {(((unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.total_unpaid_amount ??
+                unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.balance) ||
+                0) > 0) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId);
+                    setSettleTargetWorker(
+                      target || {
+                        worker_id: selectedWorkerId,
+                        name: data.allWorkers?.find((w) => w._id === selectedWorkerId)?.name,
+                        balance: data.allWorkers?.find((w) => w._id === selectedWorkerId)?.balance || 0,
+                      }
+                    );
+                    setSettleModalOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>
+                    خلاص العامل الآن (
+                    {(
+                      (unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.total_unpaid_amount ??
+                        unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.balance) ||
+                      0
+                    ).toFixed(3)}{' '}
+                    DT)
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Worker Metrics Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Box 1: Total Cumulative Unpaid Amount */}
+            <div className="bg-white p-3.5 rounded-xl border-2 border-emerald-300/80 shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                  التكلفة الإجمالية لجميع الأيام غير الخالصة
+                </span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
+              <div className="my-1">
+                <span className="font-mono text-2xl font-black text-emerald-700">
+                  {(
+                    (unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.total_unpaid_amount ??
+                      unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.balance) ||
+                    0
+                  ).toFixed(3)}
+                </span>
+                <span className="text-sm font-bold text-emerald-600 ml-1">DT</span>
+              </div>
+              <span className="text-[10px] text-slate-500">
+                {unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.unpaid_days_count || 0} يوم عمل ينتظر الدفع •{' '}
+                {unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.unpaid_pieces_count || 0} قطعة منجزة
+              </span>
+            </div>
+
+            {/* Box 2: Selected Day Earnings */}
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                مكسب اليوم المحدد فقط ({dateLabels.fr})
+              </span>
+              <div className="my-1">
+                <span className="font-mono text-xl font-extrabold text-slate-800">
+                  {(data.totalEarnings || 0).toFixed(3)}
+                </span>
+                <span className="text-xs font-bold text-slate-500 ml-1">DT</span>
+              </div>
+              <span className="text-[10px] text-slate-400">
+                {data.totalQuantity || 0} قطعة منتجة في تاريخ {selectedDate}
+              </span>
+            </div>
+
+            {/* Box 3: Last Settlement Date */}
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                آخر عملية خلاص مسجلة
+              </span>
+              <div className="my-1">
+                <span className="text-xs font-bold text-slate-800 font-mono">
+                  {unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.last_settled_at
+                    ? new Date(
+                        unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.last_settled_at
+                      ).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : 'لم يتم تسجيل خلاص بعد'}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400">
+                {(unpaidSummary?.workers?.find((w) => (w.worker_id || w._id) === selectedWorkerId)?.total_unpaid_amount || 0) === 0
+                  ? '✅ الحساب خالص بالكامل'
+                  : '⚠️ هناك مستحقات تنتظر الخلاص'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 3. MAIN TABLE OF ADDED PRODUCTS */}
       <div id="daily-operations-table" className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
         
@@ -680,6 +1052,35 @@ export default function DailyProductionTracker({ onPreviewImage }) {
         )}
 
       </div>
+
+      {/* MODALS POUR LE RÈGLEMENT & HISTORIQUE DES IMPAYÉS */}
+      <SettlementModal
+        isOpen={settleModalOpen}
+        onClose={() => setSettleModalOpen(false)}
+        worker={settleTargetWorker}
+        onSettled={() => {
+          notify.success('Règlement enregistré avec succès / تم تسجيل الخلاص بنجاح');
+          refreshAllData();
+        }}
+      />
+
+      <SettlementHistoryModal
+        isOpen={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        workerId={historyWorkerId}
+        workerName={historyWorkerName}
+        onChanged={refreshAllData}
+      />
+
+      <UnpaidSettlementBreakdownModal
+        isOpen={breakdownModalOpen}
+        onClose={() => setBreakdownModalOpen(false)}
+        worker={breakdownTargetWorker}
+        onOpenSettleModal={(w) => {
+          setSettleTargetWorker(w);
+          setSettleModalOpen(true);
+        }}
+      />
     </div>
   );
 }
