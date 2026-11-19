@@ -2,19 +2,16 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   Scissors, 
-  ShieldCheck, 
   LogIn, 
-  Sparkles, 
   AlertCircle,
-  ArrowRight,
   Eye,
   EyeOff
 } from 'lucide-react';
 
 export default function LoginView() {
-  const { login, demoAccounts } = useAuth();
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const { login } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,24 +25,6 @@ export default function LoginView() {
       await login({ username, password });
     } catch (err) {
       setError(err.message || 'Identifiants de connexion invalides / بيانات الدخول غير صحيحة');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickLogin = async (acc) => {
-    setError('');
-    setUsername(acc.username);
-    setLoading(true);
-    try {
-      if (acc.password) {
-        await login({ username: acc.username, password: acc.password });
-      } else {
-        setPassword('');
-        setError('Veuillez saisir le mot de passe de ce compte / يرجى إدخال كلمة المرور');
-      }
-    } catch (err) {
-      setError(err.message || 'Échec de la connexion');
     } finally {
       setLoading(false);
     }
@@ -71,53 +50,8 @@ export default function LoginView() {
           </p>
         </div>
 
-        {/* Quick 1-Tap Demo Logins Pill */}
-        {demoAccounts && demoAccounts.length > 0 && (
-          <div className="mt-6 bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-xs">
-            <div className="text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Connexion rapide en un clic :</span>
-            </div>
-
-            <div className="space-y-1.5">
-              {demoAccounts.map((acc) => {
-                const isAdmin = acc.role === 'admin';
-                return (
-                  <button
-                    key={acc.username}
-                    type="button"
-                    onClick={() => handleQuickLogin(acc)}
-                    className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-transform active:scale-98 border cursor-pointer ${
-                      isAdmin 
-                        ? 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-[#0F172A]' 
-                        : 'bg-emerald-50/60 hover:bg-emerald-50 border-emerald-200/80 text-emerald-900'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
-                        isAdmin ? 'bg-[#0F172A] text-white' : 'bg-emerald-600 text-white'
-                      }`}>
-                        {isAdmin ? <ShieldCheck className="w-4 h-4" /> : <Scissors className="w-4 h-4" />}
-                      </div>
-                      <div className="text-left">
-                        <div className="font-bold text-[12px]">{acc.name}</div>
-                        <div className="text-[10px] text-slate-500 font-sku">@{acc.username} • {acc.roleLabel}</div>
-                      </div>
-                    </div>
-
-                    <span className="text-[11px] font-semibold flex items-center gap-1 opacity-80">
-                      <span>Entrer</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Standard Manual Login Card */}
-        <div className="mt-4 bg-white py-6 px-6 shadow-xs rounded-2xl border border-[#E2E8F0]">
+        <div className="mt-6 bg-white py-6 px-6 shadow-xs rounded-2xl border border-[#E2E8F0]">
           
           <div className="pb-3 border-b border-slate-100 mb-4">
             <h2 className="text-sm font-bold text-[#0F172A]">Connexion au système / تسجيل الدخول</h2>
